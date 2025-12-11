@@ -411,10 +411,22 @@ export const BreedingLab: React.FC<BreedingLabProps> = ({ strains, setStrains, b
       {activeTab === 'projects' && (
          <div className="h-full pb-20 overflow-x-auto">
              <div className="flex justify-between items-center mb-6">
-                <p className="text-gray-500 dark:text-gray-400">Drag and drop projects to track progress.</p>
-                <button onClick={() => setIsProjectModalOpen(true)} className="bg-canopy-600 hover:bg-canopy-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors">
-                    <Plus size={16} /> New Project
-                </button>
+                <div>
+                   <p className="text-gray-500 dark:text-gray-400">Drag and drop projects to track progress.</p>
+                </div>
+                <div className="flex gap-2">
+                    {onTriggerAI && (
+                        <button 
+                            onClick={() => onTriggerAI("Analyze my current breeding project board. Are there any projects stuck in planning? Suggest next steps for projects in 'Pheno Hunting'.")}
+                            className="bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors"
+                        >
+                            <Bot size={16} /> AI Board Manager
+                        </button>
+                    )}
+                    <button onClick={() => setIsProjectModalOpen(true)} className="bg-canopy-600 hover:bg-canopy-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors">
+                        <Plus size={16} /> New Project
+                    </button>
+                </div>
              </div>
 
              <div className="flex gap-6 min-w-max pb-4">

@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Nutrient, Strain, UserSettings, Attachment, AiModelId } from '../types';
+import { Nutrient, Strain, UserSettings, Attachment, AiModelId, BreedingProject } from '../types';
 import { askGrowAssistant, fileToGenerativePart } from '../services/geminiService';
 import { Send, Bot, User, X, Minimize2, Maximize2, Paperclip, Mic, Brain, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -7,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 interface GlobalAssistantProps {
   nutrients: Nutrient[];
   strains: Strain[];
+  breedingProjects?: BreedingProject[];
   settings: UserSettings;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
@@ -24,6 +26,7 @@ interface Message {
 export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({ 
   nutrients, 
   strains, 
+  breedingProjects = [],
   settings, 
   isOpen, 
   setIsOpen,
@@ -115,7 +118,7 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
     try {
       await askGrowAssistant(
         apiMessages, 
-        { nutrients, strains, currentView }, 
+        { nutrients, strains, breedingProjects, currentView }, 
         settings,
         currentAttachments,
         selectedModel,
@@ -195,9 +198,11 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
                     ? 'bg-canopy-600 text-white rounded-tr-none' 
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-tl-none'
                 }`}>
-                   <ReactMarkdown className="prose prose-sm prose-invert max-w-none">
-                      {msg.text}
-                   </ReactMarkdown>
+                   <div className="prose prose-sm prose-invert max-w-none">
+                      <ReactMarkdown>
+                          {msg.text}
+                      </ReactMarkdown>
+                   </div>
                 </div>
               </div>
             ))}

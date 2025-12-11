@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Nutrient, Strain, UserSettings, Attachment, AiModelId } from '../types';
+import { Nutrient, Strain, UserSettings, Attachment, AiModelId, BreedingProject } from '../types';
 import { askGrowAssistant, fileToGenerativePart } from '../services/geminiService';
 import { Send, Bot, User, Sparkles, Trash2, Zap, Droplet, Sprout, Activity, ThermometerSun, Mic, Paperclip, X, Brain, Volume2, Headphones, MicOff, PhoneOff, Waves } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 interface AIAssistantProps {
   nutrients: Nutrient[];
   strains: Strain[];
+  breedingProjects?: BreedingProject[];
   settings: UserSettings;
   onAgentAction?: (action: any) => void;
   currentView?: string;
@@ -236,12 +237,12 @@ const LiveSessionOverlay = ({
   );
 };
 
-export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, settings, onAgentAction, currentView }) => {
+export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, breedingProjects = [], settings, onAgentAction, currentView }) => {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'model', 
-      text: `Hello ${settings.userName}! I'm Canopy, your Agentic Grow Consultant. I have control over your **${nutrients.length} nutrients** and **${strains.length} strains**. Ask me to analyze images, navigate the app, or plan your grow!` 
+      text: `Hello ${settings.userName}! I'm Canopy, your Agentic Grow Consultant. I have control over your **${nutrients.length} nutrients**, **${strains.length} strains**, and **${breedingProjects.length} breeding projects**. Ask me to analyze images, navigate the app, or plan your grow!` 
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -341,7 +342,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, se
     try {
       await askGrowAssistant(
         newHistory, 
-        { nutrients, strains, currentView: currentView || 'assistant' }, 
+        { nutrients, strains, breedingProjects, currentView: currentView || 'assistant' }, 
         settings,
         currentAttachments,
         selectedModel,
@@ -476,9 +477,11 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, se
 
                  {msg.text ? (
                    <>
-                     <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert break-words">
-                        {msg.text}
-                     </ReactMarkdown>
+                     <div className="prose prose-sm max-w-none dark:prose-invert break-words">
+                        <ReactMarkdown>
+                          {msg.text}
+                        </ReactMarkdown>
+                     </div>
                      {/* Read Aloud Button */}
                      {msg.role === 'model' && (
                         <button 

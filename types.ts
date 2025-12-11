@@ -117,7 +117,7 @@ export interface Attachment {
 }
 
 export interface AgentAction {
-  type: 'NAVIGATE' | 'ADD_ITEM' | 'NONE';
+  type: 'NAVIGATE' | 'ADD_ITEM' | 'MOVE_PROJECT' | 'CREATE_PROJECT' | 'NONE';
   payload?: any;
 }
 

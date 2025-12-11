@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { Nutrient, Strain, NutrientType, StrainType, UserSettings, NewsArticle, GeneticAnalysis, UsageLog, LineageNode, ProductAlternative, Attachment, AiModelId } from '../types';
+import { Nutrient, Strain, NutrientType, StrainType, UserSettings, NewsArticle, GeneticAnalysis, UsageLog, LineageNode, ProductAlternative, Attachment, AiModelId, BreedingProject } from '../types';
 
 // --- Gemini Client ---
 const getAiClient = (apiKey: string) => {
@@ -207,7 +208,7 @@ export const findProductAlternatives = async (
 // --- Grow Assistant & Agent ---
 export const askGrowAssistant = async (
   history: { role: string; text: string }[],
-  inventoryContext: { nutrients: Nutrient[], strains: Strain[], currentView: string },
+  inventoryContext: { nutrients: Nutrient[], strains: Strain[], breedingProjects: BreedingProject[], currentView: string },
   settings: UserSettings,
   attachments: Attachment[] = [],
   modelId: AiModelId = 'gemini-2.5-flash',
@@ -217,9 +218,12 @@ export const askGrowAssistant = async (
   
   const safeNutrients = inventoryContext.nutrients || [];
   const safeStrains = inventoryContext.strains || [];
+  const safeProjects = inventoryContext.breedingProjects || [];
   
   const nutrientList = safeNutrients.map(n => `- ${n.brand} ${n.name} (${n.npk}, ${n.bottleCount} bottles)`).join('\n');
-  const strainList = safeStrains.map(s => `- ${s.breeder} ${s.name} (${s.type}, ${s.floweringTimeWeeks}w, ${s.inventoryCount} seeds)`).join('\n');
+  const strainList = safeStrains.map(s => `- ${s.id}: ${s.breeder} ${s.name} (${s.type}, ${s.floweringTimeWeeks}w, ${s.inventoryCount} seeds)`).join('\n');
+  const projectList = safeProjects.map(p => `- ${p.id}: "${p.name}" (Status: ${p.status}, Start: ${p.startDate})`).join('\n');
+  
   const currentDate = new Date().toLocaleDateString();
 
   const isThinkingModel = modelId.includes('thinking');
@@ -235,18 +239,34 @@ export const askGrowAssistant = async (
   
   Strain Library:
   ${strainList || "None"}
+  
+  Breeding Projects:
+  ${projectList || "None"}
 
   CAPABILITIES:
   1. **Sub-Agents**: If a query is specialized (e.g., genetic lineage, pest diagnosis), act as a specialist sub-agent. Prefix your response with your Role (e.g., "🧬 Geneticist:", "🩺 Plant Doctor:").
   2. **Agentic Control**: You can CONTROL the app. If the user asks to go somewhere (e.g., "Take me to nutrients", "Go to breeding lab"), YOU MUST output a JSON command block at the end of your response.
-  3. **File Analysis**: If images are attached, analyze them for deficiency, pest, or label data.
+  3. **Project Management**: You can move projects on the Kanban board or create new ones.
 
   AGENTIC COMMAND FORMAT:
-  If you need to change the view, output this JSON block on a new line at the very end:
+  Output ONE JSON block on a new line at the very end.
+
+  1. NAVIGATION:
   \`\`\`json
-  { "action": "NAVIGATE", "payload": "nutrients" } 
+  { "type": "NAVIGATE", "payload": "breeding" } 
   \`\`\`
   Valid payloads: dashboard, nutrients, strains, breeding, order, analytics, news, settings.
+
+  2. MOVE BREEDING PROJECT:
+  \`\`\`json
+  { "type": "MOVE_PROJECT", "payload": { "id": "project_id", "status": "Pollination" } }
+  \`\`\`
+  Valid statuses: Planning, Pollination, Seed Harvest, Pheno Hunting, Completed.
+
+  3. CREATE BREEDING PROJECT:
+  \`\`\`json
+  { "type": "CREATE_PROJECT", "payload": { "motherId": "strain_id", "fatherId": "strain_id", "name": "Project Name", "notes": "Notes..." } }
+  \`\`\`
 
   GUIDELINES:
   - Be proactive. Look for gaps in inventory.
@@ -267,7 +287,6 @@ export const askGrowAssistant = async (
   });
 
   // Construct history for API (Standard text history + current multimedia message)
-  // Note: Previous history is text-only for simplicity in this implementation
   const pastHistory = history.slice(0, -1).map(h => ({
     role: h.role,
     parts: [{ text: h.text }]
@@ -289,9 +308,6 @@ export const askGrowAssistant = async (
     let fullText = '';
     
     for await (const chunk of streamResponse) {
-       // Handle Thinking Model Output
-       // Note: Current SDK might return thoughts in parts, but we'll focus on text for now.
-       // If using 'thinking' model, the 'text' property usually contains the final answer.
        const c = chunk as GenerateContentResponse;
        if (c.text) {
          fullText += c.text;
@@ -300,7 +316,8 @@ export const askGrowAssistant = async (
     }
 
     // Check for Agentic Commands in the final text
-    const commandRegex = /```json\s*(\{.*"action":\s*"NAVIGATE".*\})\s*```/s;
+    // Regex matches the last JSON block with a "type" field
+    const commandRegex = /```json\s*(\{\s*"?type"?:.*?\})\s*```/s;
     const match = fullText.match(commandRegex);
     if (match && match[1] && onAgentAction) {
         try {
@@ -308,6 +325,8 @@ export const askGrowAssistant = async (
             onAgentAction(action);
             // Clean the JSON out of the visible chat
             fullText = fullText.replace(match[0], '').trim();
+            // Perform one last update to clean UI
+            if (onStreamUpdate) onStreamUpdate(fullText, isThinkingModel);
         } catch (e) { console.error("Agent Command Parse Error", e); }
     }
 

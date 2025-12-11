@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog, BreedingProject } from './types';
+import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog, BreedingProject, AgentAction } from './types';
 import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3, ShoppingCart } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { NutrientList } from './components/NutrientList';
@@ -169,13 +169,36 @@ const App: React.FC = () => {
   };
 
   // --- Agentic Action Handler ---
-  const handleAgentAction = (action: any) => {
-    if (action.action === 'NAVIGATE' && action.payload) {
+  const handleAgentAction = (action: AgentAction) => {
+    // 1. Navigation
+    if (action.type === 'NAVIGATE' && action.payload) {
         const view = action.payload as View;
         if (['dashboard', 'nutrients', 'strains', 'breeding', 'order', 'analytics', 'assistant', 'news', 'settings'].includes(view)) {
             setCurrentView(view);
-            // Optionally close sidebar on mobile if open
             setIsSidebarOpen(false);
+        }
+    }
+    // 2. Move Breeding Project
+    else if (action.type === 'MOVE_PROJECT' && action.payload) {
+        const { id, status } = action.payload;
+        if (id && status) {
+            setBreedingProjects(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+        }
+    }
+    // 3. Create Breeding Project
+    else if (action.type === 'CREATE_PROJECT' && action.payload) {
+        const { motherId, fatherId, name, notes } = action.payload;
+        if (motherId && fatherId) {
+            const newProject: BreedingProject = {
+                id: crypto.randomUUID(),
+                name: name || 'AI Generated Project',
+                motherId,
+                fatherId,
+                status: 'Planning',
+                startDate: new Date().toLocaleDateString(),
+                notes: notes || 'Created by AI Assistant'
+            };
+            setBreedingProjects(prev => [...prev, newProject]);
         }
     }
   };
@@ -257,7 +280,7 @@ const App: React.FC = () => {
         {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
         {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} breedingProjects={breedingProjects} setBreedingProjects={setBreedingProjects} settings={settings} onTriggerAI={triggerGlobalAI} />}
         {currentView === 'order' && <OrderPage nutrients={nutrients} setNutrients={setNutrients} strains={strains} setStrains={setStrains} settings={settings} />}
-        {currentView === 'assistant' && <AIAssistant nutrients={nutrients} strains={strains} settings={settings} onAgentAction={handleAgentAction} currentView={currentView} />}
+        {currentView === 'assistant' && <AIAssistant nutrients={nutrients} strains={strains} breedingProjects={breedingProjects} settings={settings} onAgentAction={handleAgentAction} currentView={currentView} />}
         {currentView === 'news' && <NewsFeed settings={settings} />}
         {currentView === 'analytics' && <Analytics history={history} nutrients={nutrients} strains={strains} settings={settings} />}
         {currentView === 'settings' && <Settings settings={settings} onSave={handleSaveSettings} />}
@@ -268,6 +291,7 @@ const App: React.FC = () => {
             <GlobalAssistant 
               nutrients={nutrients} 
               strains={strains} 
+              breedingProjects={breedingProjects}
               settings={settings} 
               isOpen={isAssistantOpen} 
               setIsOpen={setIsAssistantOpen} 
