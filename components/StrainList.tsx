@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Strain, StrainType, UserSettings, LineageNode, UsageLog } from '../types';
 import { Plus, Trash2, Camera, Flower, Clock, Pencil, Loader2, StickyNote, Link as LinkIcon, GitMerge, ExternalLink, History, Sprout, Star } from 'lucide-react';
@@ -50,7 +49,12 @@ export const StrainList: React.FC<StrainListProps> = ({ strains, setStrains, set
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+    let val: any = value;
+    if (type === 'checkbox') {
+        val = (e.target as HTMLInputElement).checked;
+    } else if (type === 'number') {
+        val = Number(value);
+    }
     setFormData(prev => ({ ...prev, [name]: val }));
   };
   
@@ -83,10 +87,10 @@ export const StrainList: React.FC<StrainListProps> = ({ strains, setStrains, set
       name: strain.name,
       breeder: strain.breeder,
       type: strain.type,
-      floweringTimeWeeks: strain.floweringTimeWeeks,
-      inventoryCount: strain.inventoryCount,
-      cost: strain.cost || 0,
-      rating: strain.rating || 0,
+      floweringTimeWeeks: Number(strain.floweringTimeWeeks),
+      inventoryCount: Number(strain.inventoryCount),
+      cost: Number(strain.cost || 0),
+      rating: Number(strain.rating || 0),
       isAuto: strain.isAuto,
       isLandrace: strain.isLandrace || false,
       notes: strain.notes || '',
@@ -164,7 +168,7 @@ export const StrainList: React.FC<StrainListProps> = ({ strains, setStrains, set
         ...prev,
         name: (data as any).name || prev.name,
         breeder: (data as any).breeder || prev.breeder,
-        floweringTimeWeeks: (data as any).floweringTimeWeeks || prev.floweringTimeWeeks,
+        floweringTimeWeeks: Number((data as any).floweringTimeWeeks || prev.floweringTimeWeeks),
         type: (data as any).type as StrainType || prev.type,
         isAuto: (data as any).isAuto !== undefined ? (data as any).isAuto : prev.isAuto
       }));

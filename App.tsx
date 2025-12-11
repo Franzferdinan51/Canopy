@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog } from './types';
 import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3 } from 'lucide-react';
@@ -34,8 +33,19 @@ const App: React.FC = () => {
   const [nutrients, setNutrients] = useState<Nutrient[]>(() => {
     const saved = localStorage.getItem('canopy_nutrients');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed.map((n: any) => ({ ...n, bottleCount: n.bottleCount ?? 1 }));
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map((n: any) => ({ 
+            ...n, 
+            bottleCount: Number(n.bottleCount ?? 1),
+            volumeLiters: Number(n.volumeLiters ?? 0),
+            cost: Number(n.cost ?? 0)
+          }));
+        }
+      } catch (e) {
+        console.error("Error parsing nutrients", e);
+      }
     }
     return [
       { id: '1', name: 'Veg 1', brand: 'FOOP', npk: '1-1-1', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Contains nitrogen and calcium for root development' },
@@ -53,15 +63,23 @@ const App: React.FC = () => {
   const [strains, setStrains] = useState<Strain[]>(() => {
     const saved = localStorage.getItem('canopy_strains');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed.map((s: any) => ({ 
-        ...s, 
-        isLandrace: s.isLandrace ?? false,
-        parents: s.parents || [],
-        infoUrl: s.infoUrl || '',
-        cost: s.cost || 0,
-        rating: s.rating || 0
-      }));
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map((s: any) => ({ 
+            ...s, 
+            inventoryCount: Number(s.inventoryCount), // Fix: Ensure number for math operations
+            floweringTimeWeeks: Number(s.floweringTimeWeeks),
+            isLandrace: s.isLandrace ?? false,
+            parents: s.parents || [],
+            infoUrl: s.infoUrl || '',
+            cost: Number(s.cost || 0),
+            rating: Number(s.rating || 0)
+          }));
+        }
+      } catch (e) {
+        console.error("Error parsing strains", e);
+      }
     }
     const defaultStrains = [
       { id: '1', name: 'Purple Sun Shine F1', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },

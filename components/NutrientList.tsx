@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Nutrient, NutrientType, UserSettings, UsageLog } from '../types';
 import { Plus, Trash2, Camera, Droplet, Loader2, Pencil, Package, History, DollarSign } from 'lucide-react';
@@ -36,8 +35,13 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
   const [doseUnit, setDoseUnit] = useState<'ml' | 'bottle'>('ml');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    let val: any = value;
+    // Check if input type is number and cast it
+    if (type === 'number') {
+        val = Number(value);
+    }
+    setFormData(prev => ({ ...prev, [name]: val }));
   };
 
   const handleAdd = (e: React.FormEvent) => {
