@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog } from './types';
+import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog, BreedingProject } from './types';
 import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3, ShoppingCart } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { NutrientList } from './components/NutrientList';
@@ -134,11 +134,17 @@ const App: React.FC = () => {
      return saved ? JSON.parse(saved) : [];
   });
 
+  const [breedingProjects, setBreedingProjects] = useState<BreedingProject[]>(() => {
+    const saved = localStorage.getItem('canopy_breeding_projects');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // --- Persistence ---
   useEffect(() => { localStorage.setItem('canopy_nutrients', JSON.stringify(nutrients)); }, [nutrients]);
   useEffect(() => { localStorage.setItem('canopy_strains', JSON.stringify(strains)); }, [strains]);
   useEffect(() => { localStorage.setItem('canopy_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('canopy_history', JSON.stringify(history)); }, [history]);
+  useEffect(() => { localStorage.setItem('canopy_breeding_projects', JSON.stringify(breedingProjects)); }, [breedingProjects]);
 
   useEffect(() => {
     if (settings.theme === 'dark') {
@@ -249,7 +255,7 @@ const App: React.FC = () => {
         {currentView === 'dashboard' && <Dashboard nutrients={nutrients} strains={strains} onViewChange={setCurrentView} settings={settings} />}
         {currentView === 'nutrients' && <NutrientList nutrients={nutrients} setNutrients={setNutrients} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
         {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
-        {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} settings={settings} />}
+        {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} breedingProjects={breedingProjects} setBreedingProjects={setBreedingProjects} settings={settings} onTriggerAI={triggerGlobalAI} />}
         {currentView === 'order' && <OrderPage nutrients={nutrients} setNutrients={setNutrients} strains={strains} setStrains={setStrains} settings={settings} />}
         {currentView === 'assistant' && <AIAssistant nutrients={nutrients} strains={strains} settings={settings} onAgentAction={handleAgentAction} currentView={currentView} />}
         {currentView === 'news' && <NewsFeed settings={settings} />}

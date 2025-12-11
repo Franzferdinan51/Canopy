@@ -121,4 +121,17 @@ export interface AgentAction {
   payload?: any;
 }
 
+export type BreedingStatus = 'Planning' | 'Pollination' | 'Seed Harvest' | 'Pheno Hunting' | 'Completed';
+
+export interface BreedingProject {
+  id: string;
+  name: string;
+  motherId: string;
+  fatherId: string;
+  status: BreedingStatus;
+  startDate: string;
+  notes: string;
+  targetPhenos?: string;
+}
+
 export type View = 'dashboard' | 'nutrients' | 'strains' | 'assistant' | 'settings' | 'news' | 'breeding' | 'analytics' | 'order';
