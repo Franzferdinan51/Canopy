@@ -140,4 +140,11 @@ export interface ChatMessage {
   isThinking?: boolean;
 }
 
+export interface ChatSession {
+  id: string;
+  title: string;
+  date: string;
+  messages: ChatMessage[];
+}
+
 export type View = 'dashboard' | 'nutrients' | 'strains' | 'assistant' | 'settings' | 'news' | 'breeding' | 'analytics' | 'order';

@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog, BreedingProject, AgentAction, ChatMessage, Attachment, AiModelId } from './types';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog, BreedingProject, AgentAction, ChatMessage, Attachment, AiModelId, ChatSession } from './types';
 import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3, ShoppingCart } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { NutrientList } from './components/NutrientList';
@@ -22,6 +22,13 @@ const App: React.FC = () => {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  
+  // Chat Sessions State
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
+    const saved = localStorage.getItem('canopy_chat_sessions');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // --- Initial State Loaders ---
 
@@ -39,16 +46,6 @@ const App: React.FC = () => {
       preferredModel: 'gemini-2.5-flash'
     };
   });
-
-  // Initialize Welcome Message once
-  useEffect(() => {
-    if (chatHistory.length === 0) {
-      setChatHistory([{ 
-        role: 'model', 
-        text: `Hello ${settings.userName}! I'm Canopy, your Agentic Grow Consultant. I control your entire garden. Ask me to analyze data, plan projects, or navigate the app!` 
-      }]);
-    }
-  }, []);
 
   const [nutrients, setNutrients] = useState<Nutrient[]>(() => {
     const saved = localStorage.getItem('canopy_nutrients');
@@ -156,6 +153,7 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('canopy_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('canopy_history', JSON.stringify(history)); }, [history]);
   useEffect(() => { localStorage.setItem('canopy_breeding_projects', JSON.stringify(breedingProjects)); }, [breedingProjects]);
+  useEffect(() => { localStorage.setItem('canopy_chat_sessions', JSON.stringify(chatSessions)); }, [chatSessions]);
 
   useEffect(() => {
     if (settings.theme === 'dark') {
@@ -164,6 +162,17 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [settings.theme]);
+
+  // Sync Chat History to Current Session
+  useEffect(() => {
+    if (currentSessionId && chatHistory.length > 0) {
+      setChatSessions(prev => prev.map(session => 
+        session.id === currentSessionId 
+          ? { ...session, messages: chatHistory }
+          : session
+      ));
+    }
+  }, [chatHistory, currentSessionId]);
 
   const handleSaveSettings = (newSettings: UserSettings) => {
     setSettings(newSettings);
@@ -178,6 +187,58 @@ const App: React.FC = () => {
     setHistory(prev => [newLog, ...prev]);
   };
 
+  // --- Session Management ---
+
+  const createNewSession = (initialMessage?: string) => {
+     const newId = crypto.randomUUID();
+     const title = initialMessage ? (initialMessage.slice(0, 30) + (initialMessage.length > 30 ? '...' : '')) : 'New Conversation';
+     const newSession: ChatSession = {
+       id: newId,
+       title: title,
+       date: new Date().toISOString(),
+       messages: []
+     };
+     
+     setChatSessions(prev => [newSession, ...prev]);
+     setCurrentSessionId(newId);
+     setChatHistory([]); // Clear view for new chat
+     return newId;
+  };
+
+  const loadSession = (sessionId: string) => {
+    const session = chatSessions.find(s => s.id === sessionId);
+    if (session) {
+      setCurrentSessionId(sessionId);
+      setChatHistory(session.messages);
+      if (currentView !== 'assistant') setCurrentView('assistant');
+    }
+  };
+
+  const deleteSession = (sessionId: string) => {
+    setChatSessions(prev => prev.filter(s => s.id !== sessionId));
+    if (currentSessionId === sessionId) {
+       startNewChat();
+    }
+  };
+
+  const startNewChat = () => {
+    setCurrentSessionId(null);
+    setChatHistory([{ 
+      role: 'model', 
+      text: `Hello ${settings.userName}! Ready for a new topic?` 
+    }]);
+  };
+
+  // Initialize Welcome Message once if no history
+  useEffect(() => {
+    if (chatHistory.length === 0 && !currentSessionId) {
+      setChatHistory([{ 
+        role: 'model', 
+        text: `Hello ${settings.userName}! I'm Canopy, your Agentic Grow Consultant. I control your entire garden. Ask me to analyze data, plan projects, or navigate the app!` 
+      }]);
+    }
+  }, []);
+
   // --- Unified Agentic Action Handler ---
   const handleAgentAction = (action: AgentAction) => {
     if (action.type === 'NAVIGATE' && action.payload) {
@@ -185,7 +246,6 @@ const App: React.FC = () => {
         if (['dashboard', 'nutrients', 'strains', 'breeding', 'order', 'analytics', 'assistant', 'news', 'settings'].includes(view)) {
             setCurrentView(view);
             setIsSidebarOpen(false);
-            // Hide widget if navigating to assistant view
             if (view === 'assistant') setIsAssistantOpen(false);
         }
     }
@@ -214,6 +274,17 @@ const App: React.FC = () => {
 
   // --- Unified Message Handler ---
   const handleUnifiedSendMessage = async (text: string, attachments: Attachment[], modelId: AiModelId) => {
+    // Check if we need a new session
+    let activeSessionId = currentSessionId;
+    
+    if (!activeSessionId) {
+       activeSessionId = createNewSession(text);
+       // We don't need to manually setChatHistory here because createNewSession clears it, 
+       // but we want to KEEP the welcome message if it was the only thing there? 
+       // Actually, standard behavior is a fresh start implies previous context is gone.
+       // But if we just loaded the app and typed, we want to start a session.
+    }
+
     // 1. Update UI with User Message
     const newHistory = [...chatHistory, { role: 'user' as const, text }];
     setChatHistory(newHistory);
@@ -222,10 +293,6 @@ const App: React.FC = () => {
     // 2. Add placeholder for AI response
     setChatHistory(prev => [...prev, { role: 'model', text: '', isThinking: modelId.includes('thinking') }]);
 
-    // 3. Prepare Context based on Current View
-    // If the widget is open on the 'nutrients' page, we might want to prioritize nutrient context
-    // The service handles full context context anyway, but we pass currentView for specific framing.
-    
     try {
       await askGrowAssistant(
         newHistory, 
@@ -255,18 +322,10 @@ const App: React.FC = () => {
 
   // --- AI Trigger from Child Components ---
   const triggerGlobalAI = (prompt: string) => {
-    // If on assistant page, just send message. If elsewhere, open widget.
     handleUnifiedSendMessage(prompt, [], settings.preferredModel || 'gemini-2.5-flash');
     if (currentView !== 'assistant') {
         setIsAssistantOpen(true);
     }
-  };
-
-  const clearChat = () => {
-    setChatHistory([{ 
-      role: 'model', 
-      text: `Chat cleared. Ready for a fresh start, ${settings.userName}.` 
-    }]);
   };
 
   const NavItem = ({ view, icon: Icon, label }: { view: View; icon: any; label: string }) => (
@@ -348,11 +407,17 @@ const App: React.FC = () => {
                 chatHistory={chatHistory}
                 isLoading={isChatLoading}
                 onSendMessage={handleUnifiedSendMessage}
-                onClearChat={clearChat}
                 nutrients={nutrients} 
                 strains={strains} 
                 breedingProjects={breedingProjects} 
-                settings={settings} 
+                settings={settings}
+                
+                // Session Props
+                sessions={chatSessions}
+                currentSessionId={currentSessionId}
+                onNewChat={startNewChat}
+                onLoadSession={loadSession}
+                onDeleteSession={deleteSession}
             />
         )}
         

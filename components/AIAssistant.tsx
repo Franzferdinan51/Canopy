@@ -1,19 +1,26 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Nutrient, Strain, UserSettings, Attachment, AiModelId, BreedingProject, ChatMessage } from '../types';
+import { Nutrient, Strain, UserSettings, Attachment, AiModelId, BreedingProject, ChatMessage, ChatSession } from '../types';
 import { fileToGenerativePart } from '../services/geminiService';
-import { Send, Bot, User, Sparkles, Trash2, Zap, Droplet, Sprout, Activity, ThermometerSun, Mic, Paperclip, X, Brain, Volume2, Headphones, MicOff, PhoneOff } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Trash2, Zap, Droplet, Sprout, Activity, ThermometerSun, Mic, Paperclip, X, Brain, Volume2, Headphones, MicOff, PhoneOff, MessageSquare, Plus, PanelLeftClose, PanelLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface AIAssistantProps {
   chatHistory: ChatMessage[];
   isLoading: boolean;
   onSendMessage: (text: string, attachments: Attachment[], modelId: AiModelId) => void;
-  onClearChat: () => void;
   nutrients: Nutrient[];
   strains: Strain[];
   breedingProjects?: BreedingProject[];
   settings: UserSettings;
+  
+  // Session Props
+  sessions: ChatSession[];
+  currentSessionId: string | null;
+  onNewChat: () => void;
+  onLoadSession: (id: string) => void;
+  onDeleteSession: (id: string) => void;
+  onClearChat?: () => void; // Optional legacy clear
 }
 
 const QUICK_PROMPTS = [
@@ -236,14 +243,22 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
   chatHistory, 
   isLoading, 
   onSendMessage, 
-  onClearChat,
-  settings 
+  nutrients, 
+  strains, 
+  breedingProjects, 
+  settings,
+  sessions,
+  currentSessionId,
+  onNewChat,
+  onLoadSession,
+  onDeleteSession
 }) => {
   const [query, setQuery] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [selectedModel, setSelectedModel] = useState<AiModelId>(settings.preferredModel || 'gemini-2.5-flash');
   const [isLiveMode, setIsLiveMode] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -322,18 +337,12 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
-  const handleClearChat = () => {
-    if(confirm("Clear conversation history?")) {
-      onClearChat();
-    }
-  };
-
   const lastModelMessage = chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === 'model' 
     ? chatHistory[chatHistory.length - 1].text 
     : '';
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900 relative transition-colors">
+    <div className="flex h-full bg-gray-50 dark:bg-gray-900 transition-colors overflow-hidden">
       
       {/* Live Voice Overlay */}
       <LiveSessionOverlay 
@@ -344,197 +353,233 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
         isProcessing={isLoading}
       />
 
-      {/* Header */}
-      <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-10 shadow-sm flex flex-col gap-2 sticky top-0">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-            <Sparkles className="text-canopy-500" size={20} />
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Grow Assistant</h2>
-            </div>
-            <div className="flex items-center gap-2">
-            
-            {/* Live Mode Trigger */}
-            <button
-               onClick={() => setIsLiveMode(true)}
-               className="p-2 bg-gradient-to-r from-canopy-500 to-blue-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all animate-pulse-slow flex items-center gap-2"
-               title="Enter Live Voice Mode"
+      {/* Sidebar: Chat History */}
+      <div className={`flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex flex-col ${isSidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
+        <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+          <button 
+            onClick={onNewChat}
+            className="w-full bg-canopy-600 hover:bg-canopy-700 text-white p-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-colors shadow-sm"
+          >
+            <Plus size={18} /> New Chat
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {sessions.map(session => (
+            <div 
+              key={session.id} 
+              className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${currentSessionId === session.id ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800/50 dark:text-gray-400'}`}
+              onClick={() => onLoadSession(session.id)}
             >
-               <Headphones size={18} />
-               <span className="text-xs font-bold hidden md:inline">Live Mode</span>
+              <div className="flex items-center gap-3 overflow-hidden">
+                <MessageSquare size={16} className="flex-shrink-0" />
+                <div className="truncate text-sm font-medium">{session.title}</div>
+              </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onDeleteSession(session.id); }}
+                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 rounded"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+          {sessions.length === 0 && (
+             <div className="text-center p-4 text-xs text-gray-400">No history yet</div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col h-full relative">
+        
+        {/* Header */}
+        <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-10 shadow-sm flex flex-col gap-2 sticky top-0">
+          <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeft size={20} />}
+                </button>
+                <div className="flex items-center gap-2">
+                    <Sparkles className="text-canopy-500" size={20} />
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">Grow Assistant</h2>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+              
+              {/* Live Mode Trigger */}
+              <button
+                 onClick={() => setIsLiveMode(true)}
+                 className="p-2 bg-gradient-to-r from-canopy-500 to-blue-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all animate-pulse-slow flex items-center gap-2"
+                 title="Enter Live Voice Mode"
+              >
+                 <Headphones size={18} />
+                 <span className="text-xs font-bold hidden md:inline">Live Mode</span>
+              </button>
+              </div>
+          </div>
+
+          {/* Model & Agent Controls */}
+          <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-hide">
+               <select 
+                 value={selectedModel}
+                 onChange={(e) => setSelectedModel(e.target.value as AiModelId)}
+                 className="text-xs bg-gray-100 dark:bg-gray-800 border-none rounded-lg px-2 py-1.5 text-gray-700 dark:text-gray-300 outline-none cursor-pointer"
+               >
+                  <option value="gemini-2.5-flash">⚡ Flash 2.5 (Fast)</option>
+                  <option value="gemini-2.0-flash-thinking-exp-01-21">🧠 Thinking 2.0 (Deep Reason)</option>
+                  <option value="gemini-1.5-pro">💎 Pro 1.5 (Complex)</option>
+               </select>
+
+               <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-bold ${selectedModel.includes('thinking') ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-50 text-gray-400 dark:bg-gray-800/50'}`}>
+                  <Brain size={14} />
+                  <span>Thinking {selectedModel.includes('thinking') ? 'ON' : 'OFF'}</span>
+               </div>
+               
+               <div className="text-xs text-canopy-600 dark:text-canopy-400 font-medium flex items-center gap-1 bg-canopy-50 dark:bg-canopy-900/20 px-2 py-1.5 rounded-lg">
+                  <Zap size={12} className="fill-current" /> Agentic Control
+               </div>
+          </div>
+        </div>
+
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-4 bg-white dark:bg-gray-900">
+          {chatHistory.map((msg, idx) => (
+            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+              <div className={`flex max-w-[90%] md:max-w-[75%] gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-1 ${
+                  msg.role === 'user' 
+                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300' 
+                    : 'bg-gradient-to-br from-canopy-400 to-canopy-600 text-white'
+                }`}>
+                  {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+                </div>
+
+                <div className={`relative p-4 rounded-2xl text-sm leading-relaxed shadow-sm group ${
+                  msg.role === 'user' 
+                    ? 'bg-gray-800 text-white rounded-tr-none' 
+                    : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
+                }`}>
+                   
+                   {msg.role === 'model' && msg.isThinking && !msg.text && (
+                      <div className="flex items-center gap-2 text-purple-500 mb-2 animate-pulse">
+                          <Brain size={14} />
+                          <span className="text-xs font-bold">Reasoning...</span>
+                      </div>
+                   )}
+
+                   {msg.text ? (
+                     <>
+                       <div className="prose prose-sm max-w-none dark:prose-invert break-words">
+                          <ReactMarkdown>
+                            {msg.text}
+                          </ReactMarkdown>
+                       </div>
+                       {msg.role === 'model' && (
+                          <button 
+                              onClick={() => speakText(msg.text)}
+                              className="absolute -bottom-6 left-0 p-1 text-gray-400 hover:text-canopy-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Read Aloud"
+                          >
+                              <Volume2 size={14} />
+                          </button>
+                       )}
+                     </>
+                   ) : (
+                     <div className="flex gap-1 h-5 items-center">
+                       <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce"></div>
+                       <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                       <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                     </div>
+                   )}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 space-y-3 z-10">
+          
+          {/* Attachments Preview */}
+          {attachments.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                  {attachments.map((att, i) => (
+                      <div key={i} className="relative group">
+                          <div className="w-16 h-16 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden">
+                              {att.mimeType.startsWith('image/') ? (
+                                  <img src={`data:${att.mimeType};base64,${att.base64}`} className="w-full h-full object-cover" />
+                              ) : (
+                                  <Paperclip size={20} className="text-gray-400" />
+                              )}
+                          </div>
+                          <button 
+                              onClick={() => removeAttachment(i)}
+                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600"
+                          >
+                              <X size={12} />
+                          </button>
+                      </div>
+                  ))}
+              </div>
+          )}
+
+          {/* Quick Prompts */}
+          {!isLoading && chatHistory.length < 3 && !currentSessionId && (
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {QUICK_PROMPTS.map((qp, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleSubmit(undefined, qp.prompt)}
+                  className="flex items-center gap-2 whitespace-nowrap bg-gray-50 dark:bg-gray-800 hover:bg-canopy-50 dark:hover:bg-canopy-900/30 border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-600 dark:text-gray-300 px-3 py-2 rounded-full transition-colors"
+                >
+                  <qp.icon size={14} className="text-canopy-500" />
+                  {qp.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={(e) => handleSubmit(e)} className="flex items-end gap-2 relative">
+            
+            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} accept="image/*" />
+            <button 
+               type="button" 
+               onClick={() => fileInputRef.current?.click()}
+               className="p-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl text-gray-500 transition-colors"
+            >
+              <Paperclip size={20} />
+            </button>
+
+            <div className="flex-1 relative">
+              <input 
+                  ref={inputRef}
+                  type="text" 
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={isLoading ? "Canopy is thinking..." : "Ask Canopy..."}
+                  className="w-full p-3.5 pr-12 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-canopy-500 bg-gray-50 dark:bg-gray-800 dark:text-white transition-all disabled:opacity-70"
+                  disabled={isLoading}
+              />
+            </div>
+
+            <button 
+               type="button"
+               onClick={toggleListening}
+               className={`p-3 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+            >
+               <Mic size={20} />
             </button>
 
             <button 
-                onClick={handleClearChat}
-                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                title="Clear Chat"
+              type="submit" 
+              disabled={isLoading || (!query.trim() && attachments.length === 0)}
+              className="bg-canopy-600 hover:bg-canopy-700 text-white p-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-                <Trash2 size={18} />
+              <Send size={20} />
             </button>
-            </div>
+          </form>
         </div>
-
-        {/* Model & Agent Controls */}
-        <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-hide">
-             <select 
-               value={selectedModel}
-               onChange={(e) => setSelectedModel(e.target.value as AiModelId)}
-               className="text-xs bg-gray-100 dark:bg-gray-800 border-none rounded-lg px-2 py-1.5 text-gray-700 dark:text-gray-300 outline-none cursor-pointer"
-             >
-                <option value="gemini-2.5-flash">⚡ Flash 2.5 (Fast)</option>
-                <option value="gemini-2.0-flash-thinking-exp-01-21">🧠 Thinking 2.0 (Deep Reason)</option>
-                <option value="gemini-1.5-pro">💎 Pro 1.5 (Complex)</option>
-             </select>
-
-             <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-bold ${selectedModel.includes('thinking') ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-50 text-gray-400 dark:bg-gray-800/50'}`}>
-                <Brain size={14} />
-                <span>Thinking {selectedModel.includes('thinking') ? 'ON' : 'OFF'}</span>
-             </div>
-             
-             <div className="text-xs text-canopy-600 dark:text-canopy-400 font-medium flex items-center gap-1 bg-canopy-50 dark:bg-canopy-900/20 px-2 py-1.5 rounded-lg">
-                <Zap size={12} className="fill-current" /> Agentic Control
-             </div>
-        </div>
-      </div>
-
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-4">
-        {chatHistory.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
-            <div className={`flex max-w-[90%] md:max-w-[75%] gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-              
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-1 ${
-                msg.role === 'user' 
-                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300' 
-                  : 'bg-gradient-to-br from-canopy-400 to-canopy-600 text-white'
-              }`}>
-                {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
-              </div>
-
-              <div className={`relative p-4 rounded-2xl text-sm leading-relaxed shadow-sm group ${
-                msg.role === 'user' 
-                  ? 'bg-gray-800 text-white rounded-tr-none' 
-                  : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
-              }`}>
-                 
-                 {msg.role === 'model' && msg.isThinking && !msg.text && (
-                    <div className="flex items-center gap-2 text-purple-500 mb-2 animate-pulse">
-                        <Brain size={14} />
-                        <span className="text-xs font-bold">Reasoning...</span>
-                    </div>
-                 )}
-
-                 {msg.text ? (
-                   <>
-                     <div className="prose prose-sm max-w-none dark:prose-invert break-words">
-                        <ReactMarkdown>
-                          {msg.text}
-                        </ReactMarkdown>
-                     </div>
-                     {msg.role === 'model' && (
-                        <button 
-                            onClick={() => speakText(msg.text)}
-                            className="absolute -bottom-6 left-0 p-1 text-gray-400 hover:text-canopy-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Read Aloud"
-                        >
-                            <Volume2 size={14} />
-                        </button>
-                     )}
-                   </>
-                 ) : (
-                   <div className="flex gap-1 h-5 items-center">
-                     <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce"></div>
-                     <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                     <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                   </div>
-                 )}
-              </div>
-            </div>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input Area */}
-      <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 space-y-3">
-        
-        {/* Attachments Preview */}
-        {attachments.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pb-2">
-                {attachments.map((att, i) => (
-                    <div key={i} className="relative group">
-                        <div className="w-16 h-16 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden">
-                            {att.mimeType.startsWith('image/') ? (
-                                <img src={`data:${att.mimeType};base64,${att.base64}`} className="w-full h-full object-cover" />
-                            ) : (
-                                <Paperclip size={20} className="text-gray-400" />
-                            )}
-                        </div>
-                        <button 
-                            onClick={() => removeAttachment(i)}
-                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600"
-                        >
-                            <X size={12} />
-                        </button>
-                    </div>
-                ))}
-            </div>
-        )}
-
-        {/* Quick Prompts */}
-        {!isLoading && chatHistory.length < 3 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {QUICK_PROMPTS.map((qp, i) => (
-              <button
-                key={i}
-                onClick={() => handleSubmit(undefined, qp.prompt)}
-                className="flex items-center gap-2 whitespace-nowrap bg-gray-50 dark:bg-gray-800 hover:bg-canopy-50 dark:hover:bg-canopy-900/30 border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-600 dark:text-gray-300 px-3 py-2 rounded-full transition-colors"
-              >
-                <qp.icon size={14} className="text-canopy-500" />
-                {qp.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <form onSubmit={(e) => handleSubmit(e)} className="flex items-end gap-2 relative">
-          
-          <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} accept="image/*" />
-          <button 
-             type="button" 
-             onClick={() => fileInputRef.current?.click()}
-             className="p-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl text-gray-500 transition-colors"
-          >
-            <Paperclip size={20} />
-          </button>
-
-          <div className="flex-1 relative">
-            <input 
-                ref={inputRef}
-                type="text" 
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={isLoading ? "Canopy is thinking..." : "Ask Canopy..."}
-                className="w-full p-3.5 pr-12 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-canopy-500 bg-gray-50 dark:bg-gray-800 dark:text-white transition-all disabled:opacity-70"
-                disabled={isLoading}
-            />
-          </div>
-
-          <button 
-             type="button"
-             onClick={toggleListening}
-             className={`p-3 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-          >
-             <Mic size={20} />
-          </button>
-
-          <button 
-            type="submit" 
-            disabled={isLoading || (!query.trim() && attachments.length === 0)}
-            className="bg-canopy-600 hover:bg-canopy-700 text-white p-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Send size={20} />
-          </button>
-        </form>
       </div>
     </div>
   );
