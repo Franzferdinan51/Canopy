@@ -33,7 +33,8 @@ const App: React.FC = () => {
       geminiApiKey: '',
       lmStudioUrl: 'http://localhost:1234/v1',
       lmStudioModel: '',
-      theme: 'dark'
+      theme: 'dark',
+      preferredModel: 'gemini-2.5-flash'
     };
   });
 
@@ -161,6 +162,18 @@ const App: React.FC = () => {
     setHistory(prev => [newLog, ...prev]);
   };
 
+  // --- Agentic Action Handler ---
+  const handleAgentAction = (action: any) => {
+    if (action.action === 'NAVIGATE' && action.payload) {
+        const view = action.payload as View;
+        if (['dashboard', 'nutrients', 'strains', 'breeding', 'order', 'analytics', 'assistant', 'news', 'settings'].includes(view)) {
+            setCurrentView(view);
+            // Optionally close sidebar on mobile if open
+            setIsSidebarOpen(false);
+        }
+    }
+  };
+
   // --- AI Trigger Helper ---
   const triggerGlobalAI = (prompt: string) => {
     setAssistantPrompt(prompt);
@@ -238,32 +251,37 @@ const App: React.FC = () => {
         {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
         {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} settings={settings} />}
         {currentView === 'order' && <OrderPage nutrients={nutrients} setNutrients={setNutrients} strains={strains} setStrains={setStrains} settings={settings} />}
-        {currentView === 'assistant' && <AIAssistant nutrients={nutrients} strains={strains} settings={settings} />}
+        {currentView === 'assistant' && <AIAssistant nutrients={nutrients} strains={strains} settings={settings} onAgentAction={handleAgentAction} currentView={currentView} />}
         {currentView === 'news' && <NewsFeed settings={settings} />}
         {currentView === 'analytics' && <Analytics history={history} nutrients={nutrients} strains={strains} settings={settings} />}
         {currentView === 'settings' && <Settings settings={settings} onSave={handleSaveSettings} />}
         
-        {/* Floating Global Assistant */}
-        <GlobalAssistant 
-          nutrients={nutrients} 
-          strains={strains} 
-          settings={settings} 
-          isOpen={isAssistantOpen} 
-          setIsOpen={setIsAssistantOpen} 
-          currentView={currentView}
-          initialPrompt={assistantPrompt}
-          onClearInitialPrompt={() => setAssistantPrompt('')}
-        />
-        
-        {/* Assistant Trigger FAB (Only show if not open) */}
-        {!isAssistantOpen && (
-          <button 
-            onClick={() => setIsAssistantOpen(true)}
-            className="fixed bottom-6 right-6 bg-canopy-600 hover:bg-canopy-700 text-white p-4 rounded-full shadow-lg z-50 transition-transform hover:scale-105"
-            title="Open Canopy Assistant"
-          >
-            <Bot size={24} />
-          </button>
+        {/* Floating Global Assistant - Only show if NOT on the main assistant page */}
+        {currentView !== 'assistant' && (
+          <>
+            <GlobalAssistant 
+              nutrients={nutrients} 
+              strains={strains} 
+              settings={settings} 
+              isOpen={isAssistantOpen} 
+              setIsOpen={setIsAssistantOpen} 
+              currentView={currentView}
+              initialPrompt={assistantPrompt}
+              onClearInitialPrompt={() => setAssistantPrompt('')}
+              onAgentAction={handleAgentAction}
+            />
+            
+            {/* Assistant Trigger FAB (Only show if not open) */}
+            {!isAssistantOpen && (
+              <button 
+                onClick={() => setIsAssistantOpen(true)}
+                className="fixed bottom-6 right-6 bg-canopy-600 hover:bg-canopy-700 text-white p-4 rounded-full shadow-lg z-50 transition-transform hover:scale-105"
+                title="Open Canopy Assistant"
+              >
+                <Bot size={24} />
+              </button>
+            )}
+          </>
         )}
 
       </main>

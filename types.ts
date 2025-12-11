@@ -60,6 +60,8 @@ export interface UsageLog {
   note?: string;
 }
 
+export type AiModelId = 'gemini-2.5-flash' | 'gemini-2.0-flash-thinking-exp-01-21' | 'gemini-1.5-pro';
+
 export interface UserSettings {
   userName: string;
   experienceLevel: 'Beginner' | 'Intermediate' | 'Master';
@@ -68,6 +70,7 @@ export interface UserSettings {
   lmStudioUrl: string; 
   lmStudioModel: string;
   theme: 'light' | 'dark';
+  preferredModel: AiModelId;
 }
 
 export interface NewsArticle {
@@ -105,6 +108,17 @@ export interface ProductAlternative {
   approxPrice: number;
   reason: string;
   searchQuery: string;
+}
+
+export interface Attachment {
+  file: File;
+  base64: string;
+  mimeType: string;
+}
+
+export interface AgentAction {
+  type: 'NAVIGATE' | 'ADD_ITEM' | 'NONE';
+  payload?: any;
 }
 
 export type View = 'dashboard' | 'nutrients' | 'strains' | 'assistant' | 'settings' | 'news' | 'breeding' | 'analytics' | 'order';

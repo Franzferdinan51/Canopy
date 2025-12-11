@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { Nutrient, Strain, NutrientType, StrainType, UserSettings, NewsArticle, GeneticAnalysis, UsageLog, LineageNode, ProductAlternative } from '../types';
+import { Nutrient, Strain, NutrientType, StrainType, UserSettings, NewsArticle, GeneticAnalysis, UsageLog, LineageNode, ProductAlternative, Attachment, AiModelId } from '../types';
 
 // --- Gemini Client ---
 const getAiClient = (apiKey: string) => {
@@ -134,16 +134,12 @@ export const fetchStrainDataFromUrl = async (
 
     if (response.text) {
       let cleanedText = response.text.trim();
-      // Remove markdown code blocks if present
       if (cleanedText.startsWith('```')) {
         cleanedText = cleanedText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
       }
       
-      // Attempt to parse JSON
       try {
         const data = JSON.parse(cleanedText);
-        
-        // Normalize StrainType enum
         let normalizedType = StrainType.HYBRID;
         if (data.type?.toLowerCase().includes('indica')) normalizedType = StrainType.INDICA;
         else if (data.type?.toLowerCase().includes('sativa')) normalizedType = StrainType.SATIVA;
@@ -153,7 +149,6 @@ export const fetchStrainDataFromUrl = async (
           ...data,
           type: normalizedType,
           isAuto: data.isAuto || normalizedType === StrainType.RUDERALIS,
-          // Return null if not found, do not default to 9 here
           floweringTimeWeeks: typeof data.floweringTimeWeeks === 'number' ? data.floweringTimeWeeks : null
         };
       } catch (parseError) {
@@ -209,50 +204,17 @@ export const findProductAlternatives = async (
   }
 };
 
-// --- LM Studio Client ---
-const callLmStudio = async (
-  messages: any[], 
-  settings: UserSettings, 
-  systemInstruction: string
-): Promise<string> => {
-  try {
-    const url = `${settings.lmStudioUrl.replace(/\/$/, '')}/chat/completions`;
-    const fullMessages = [
-      { role: "system", content: systemInstruction },
-      ...messages
-    ];
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: settings.lmStudioModel || "local-model",
-        messages: fullMessages,
-        temperature: 0.7,
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`LM Studio Error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || "No response from local model.";
-  } catch (error) {
-    console.error("LM Studio Connection Error:", error);
-    throw new Error("Failed to connect to LM Studio. Is it running with the Server enabled?");
-  }
-};
-
-// --- Grow Assistant ---
+// --- Grow Assistant & Agent ---
 export const askGrowAssistant = async (
   history: { role: string; text: string }[],
-  inventoryContext: { nutrients: Nutrient[], strains: Strain[] },
+  inventoryContext: { nutrients: Nutrient[], strains: Strain[], currentView: string },
   settings: UserSettings,
-  onStreamUpdate?: (fullText: string) => void
+  attachments: Attachment[] = [],
+  modelId: AiModelId = 'gemini-2.5-flash',
+  onStreamUpdate?: (fullText: string, isThinking?: boolean) => void,
+  onAgentAction?: (action: any) => void
 ): Promise<string> => {
   
-  // Safe fallback to prevent mapping undefined arrays
   const safeNutrients = inventoryContext.nutrients || [];
   const safeStrains = inventoryContext.strains || [];
   
@@ -260,69 +222,102 @@ export const askGrowAssistant = async (
   const strainList = safeStrains.map(s => `- ${s.breeder} ${s.name} (${s.type}, ${s.floweringTimeWeeks}w, ${s.inventoryCount} seeds)`).join('\n');
   const currentDate = new Date().toLocaleDateString();
 
-  const systemInstruction = `You are Canopy, an expert master grower AI agent managed by ${settings.userName} (${settings.experienceLevel} grower).
-  Current Date: ${currentDate}.
-  
-  YOUR MISSION:
-  Act as a proactive inventory manager and cultivation consultant.
-  You have full access to the user's "Virtual Grow Room" inventory listed below.
-  
-  CONTEXT - INVENTORY:
-  Nutrients Available:
-  ${nutrientList || "No nutrients listed in inventory."}
+  const isThinkingModel = modelId.includes('thinking');
+
+  const systemInstruction = `You are Canopy, a fully Context-Aware, Agentic Master Grower AI.
+  Managed by: ${settings.userName} (${settings.experienceLevel} grower).
+  Date: ${currentDate}.
+  Current View: ${inventoryContext.currentView}.
+
+  FULL INVENTORY ACCESS:
+  Nutrients:
+  ${nutrientList || "None"}
   
   Strain Library:
-  ${strainList || "No strains listed in library."}
-  
+  ${strainList || "None"}
+
+  CAPABILITIES:
+  1. **Sub-Agents**: If a query is specialized (e.g., genetic lineage, pest diagnosis), act as a specialist sub-agent. Prefix your response with your Role (e.g., "🧬 Geneticist:", "🩺 Plant Doctor:").
+  2. **Agentic Control**: You can CONTROL the app. If the user asks to go somewhere (e.g., "Take me to nutrients", "Go to breeding lab"), YOU MUST output a JSON command block at the end of your response.
+  3. **File Analysis**: If images are attached, analyze them for deficiency, pest, or label data.
+
+  AGENTIC COMMAND FORMAT:
+  If you need to change the view, output this JSON block on a new line at the very end:
+  \`\`\`json
+  { "action": "NAVIGATE", "payload": "nutrients" } 
+  \`\`\`
+  Valid payloads: dashboard, nutrients, strains, breeding, order, analytics, news, settings.
+
   GUIDELINES:
-  - **Be Proactive**: If the user asks for a schedule, cross-reference their Nutrient list.
-  - **Look for Gaps**: Explicitly tell the user if they are missing a key nutrient (e.g., CalMag) or if they are low on stock.
-  - **Be Adaptive**: Tailor advice to a "${settings.experienceLevel}" level.
-  - **Be Concise**: Use Markdown.
+  - Be proactive. Look for gaps in inventory.
+  - Be concise and use Markdown.
   `;
 
-  const lastMessage = history[history.length - 1].text;
-
-  if (settings.aiProvider === 'lm-studio') {
-    const apiMessages = history.map(h => ({
-      role: h.role === 'model' ? 'assistant' : 'user',
-      content: h.text
-    }));
-    const response = await callLmStudio(apiMessages, settings, systemInstruction);
-    if (onStreamUpdate) onStreamUpdate(response);
-    return response;
-  } else {
-    try {
-      const ai = getAiClient(settings.geminiApiKey);
-      const chat = ai.chats.create({
-        model: "gemini-2.5-flash",
-        config: { systemInstruction: systemInstruction },
-        history: history.slice(0, -1).map(h => ({
-          role: h.role,
-          parts: [{ text: h.text }]
-        }))
-      });
-
-      if (onStreamUpdate) {
-        const streamResponse = await chat.sendMessageStream({ message: lastMessage });
-        let fullText = '';
-        for await (const chunk of streamResponse) {
-           const c = chunk as GenerateContentResponse;
-           if (c.text) {
-             fullText += c.text;
-             onStreamUpdate(fullText);
-           }
-        }
-        return fullText;
-      } else {
-        const response = await chat.sendMessage({ message: lastMessage });
-        return response.text || "I couldn't generate a response.";
+  // Prepare contents with attachments
+  const lastMessageText = history[history.length - 1].text;
+  const userContentParts: any[] = [{ text: lastMessageText }];
+  
+  attachments.forEach(att => {
+    userContentParts.push({
+      inlineData: {
+        mimeType: att.mimeType,
+        data: att.base64
       }
-    } catch (error) {
-      const errText = "Error connecting to Gemini. Please check your API Key in settings.";
-      if (onStreamUpdate) onStreamUpdate(errText);
-      return errText;
+    });
+  });
+
+  // Construct history for API (Standard text history + current multimedia message)
+  // Note: Previous history is text-only for simplicity in this implementation
+  const pastHistory = history.slice(0, -1).map(h => ({
+    role: h.role,
+    parts: [{ text: h.text }]
+  }));
+
+  try {
+    const ai = getAiClient(settings.geminiApiKey);
+    const chat = ai.chats.create({
+      model: modelId,
+      config: { systemInstruction: systemInstruction },
+      history: pastHistory
+    });
+
+    const streamResponse = await chat.sendMessageStream({ 
+      role: 'user', 
+      parts: userContentParts 
+    });
+
+    let fullText = '';
+    
+    for await (const chunk of streamResponse) {
+       // Handle Thinking Model Output
+       // Note: Current SDK might return thoughts in parts, but we'll focus on text for now.
+       // If using 'thinking' model, the 'text' property usually contains the final answer.
+       const c = chunk as GenerateContentResponse;
+       if (c.text) {
+         fullText += c.text;
+         if (onStreamUpdate) onStreamUpdate(fullText, isThinkingModel);
+       }
     }
+
+    // Check for Agentic Commands in the final text
+    const commandRegex = /```json\s*(\{.*"action":\s*"NAVIGATE".*\})\s*```/s;
+    const match = fullText.match(commandRegex);
+    if (match && match[1] && onAgentAction) {
+        try {
+            const action = JSON.parse(match[1]);
+            onAgentAction(action);
+            // Clean the JSON out of the visible chat
+            fullText = fullText.replace(match[0], '').trim();
+        } catch (e) { console.error("Agent Command Parse Error", e); }
+    }
+
+    return fullText;
+
+  } catch (error) {
+    console.error("Gemini Assistant Error:", error);
+    const errText = "Error connecting to Gemini. Please check your API Key or Network.";
+    if (onStreamUpdate) onStreamUpdate(errText);
+    return errText;
   }
 };
 
@@ -334,7 +329,6 @@ export const analyzeGenetics = async (
 ): Promise<GeneticAnalysis> => {
   const ai = getAiClient(settings.geminiApiKey);
   
-  // Safe fallback if inventory is somehow undefined
   const safeInventory = inventory || [];
   
   const potentialPartners = safeInventory
@@ -347,10 +341,6 @@ export const analyzeGenetics = async (
     const parentStr = targetStrain.parents.map(p => `${p.name} (${p.type})`).join(', ');
     knownLineageContext += `KNOWN PARENTS: ${parentStr}.\n`;
   }
-  if (targetStrain.grandparents && targetStrain.grandparents.length > 0) {
-    const gpStr = targetStrain.grandparents.map(gp => `${gp.name} (${gp.type})`).join(', ');
-    knownLineageContext += `KNOWN GRANDPARENTS: ${gpStr}.\n`;
-  }
 
   const prompt = `Analyze the cannabis strain "${targetStrain.name}" by ${targetStrain.breeder}.
   ${knownLineageContext ? `IMPORTANT: Use this lineage:\n${knownLineageContext}` : 'TASK 1: Determine lineage.'}
@@ -361,7 +351,7 @@ export const analyzeGenetics = async (
 
   IMPORTANT REQUIREMENTS:
   1. For each recommendation, predict 2-3 specific potential phenotypes. 
-  2. For EACH phenotype, provide a 'name' (e.g. 'Berry Pheno') and a DETAILED 'description' covering growth structure, smell, and effects.
+  2. For EACH phenotype, provide a 'name' (e.g. 'Berry Pheno') and a DETAILED 'description'.
   
   Expected JSON Structure:
   {
@@ -376,7 +366,7 @@ export const analyzeGenetics = async (
         "synergyAnalysis": "string",
         "dominantTerpenes": ["string"],
         "potentialPhenotypes": [
-           { "name": "string", "description": "Detailed description of structure, smell, and effects." }
+           { "name": "string", "description": "Detailed description." }
         ]
       }
     ]
@@ -415,17 +405,11 @@ export const analyzeGrowData = async (
                      strains.reduce((acc, s) => acc + (s.cost || 0), 0);
 
   const prompt = `Analyze this grower's data log and inventory value.
-  
   Inventory Value: $${totalValue} (approx).
   Recent Activity Log:
   ${logSummary}
 
-  Provide 3 key insights in Markdown:
-  1. **Cost Efficiency**: Comment on spending/value.
-  2. **Usage Trends**: Are they using specific nutrients heavily? Are they popping a lot of seeds?
-  3. **Recommendation**: Suggest a bulk purchase or process change.
-  
-  Keep it brief and analytical.
+  Provide 3 key insights in Markdown.
   `;
 
   const response = await ai.models.generateContent({
@@ -443,28 +427,23 @@ export const generateDashboardBriefing = async (
   settings: UserSettings
 ): Promise<string> => {
   const ai = getAiClient(settings.geminiApiKey);
-
-  // Summarize Inventory
   const lowStockNutes = nutrients.filter(n => (n.bottleCount || 0) <= 1).map(n => n.name).join(', ');
-  const strainTypes = strains.reduce((acc, s) => { acc[s.type] = (acc[s.type] || 0) + 1; return acc; }, {} as Record<string, number>);
   const totalBottles = nutrients.reduce((acc, n) => acc + (n.bottleCount || 0), 0);
 
   const prompt = `
   You are 'Canopy', a Master Grower AI.
-  
   Grower Name: ${settings.userName}
   Context:
-  - Total Strains: ${strains.length} (${JSON.stringify(strainTypes)})
+  - Total Strains: ${strains.length}
   - Nutrient Bottles: ${totalBottles}
   - Low Stock Nutrients: ${lowStockNutes || 'None'}
   
   Task:
   Generate a "Daily Briefing" card text (Markdown).
-  1. Start with a short, motivating greeting based on the user's name.
-  2. Give 1 specific observation about their inventory (e.g. "You're heavy on Sativas" or "Looks like you need to restock ${lowStockNutes}").
-  3. Offer 1 quick "Pro Tip" relevant to a generic indoor grow cycle.
-  
-  Keep it under 60 words. Be friendly and professional.
+  1. Start with a short, motivating greeting.
+  2. Give 1 specific observation.
+  3. Offer 1 quick "Pro Tip".
+  Keep it under 60 words.
   `;
 
   try {
@@ -472,7 +451,7 @@ export const generateDashboardBriefing = async (
       model: "gemini-2.5-flash",
       contents: prompt
     });
-    return response.text || "Welcome back, Grower. Your canopy is looking lush today.";
+    return response.text || "Welcome back, Grower.";
   } catch (e) {
     return "Welcome back! Check your nutrient levels today.";
   }
