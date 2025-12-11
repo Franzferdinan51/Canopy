@@ -134,4 +134,10 @@ export interface BreedingProject {
   targetPhenos?: string;
 }
 
+export interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
+  isThinking?: boolean;
+}
+
 export type View = 'dashboard' | 'nutrients' | 'strains' | 'assistant' | 'settings' | 'news' | 'breeding' | 'analytics' | 'order';

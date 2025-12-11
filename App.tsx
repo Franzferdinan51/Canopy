@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog, BreedingProject, AgentAction } from './types';
+import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog, BreedingProject, AgentAction, ChatMessage, Attachment, AiModelId } from './types';
 import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3, ShoppingCart } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { NutrientList } from './components/NutrientList';
@@ -12,14 +12,16 @@ import { BreedingLab } from './components/BreedingLab';
 import { Analytics } from './components/Analytics';
 import { OrderPage } from './components/OrderPage';
 import { GlobalAssistant } from './components/GlobalAssistant';
+import { askGrowAssistant } from './services/geminiService';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // Global Assistant State
+  // --- Unified AI State ---
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-  const [assistantPrompt, setAssistantPrompt] = useState<string>('');
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
   // --- Initial State Loaders ---
 
@@ -37,6 +39,16 @@ const App: React.FC = () => {
       preferredModel: 'gemini-2.5-flash'
     };
   });
+
+  // Initialize Welcome Message once
+  useEffect(() => {
+    if (chatHistory.length === 0) {
+      setChatHistory([{ 
+        role: 'model', 
+        text: `Hello ${settings.userName}! I'm Canopy, your Agentic Grow Consultant. I control your entire garden. Ask me to analyze data, plan projects, or navigate the app!` 
+      }]);
+    }
+  }, []);
 
   const [nutrients, setNutrients] = useState<Nutrient[]>(() => {
     const saved = localStorage.getItem('canopy_nutrients');
@@ -76,7 +88,7 @@ const App: React.FC = () => {
         if (Array.isArray(parsed)) {
           return parsed.map((s: any) => ({ 
             ...s, 
-            inventoryCount: Number(s.inventoryCount), // Fix: Ensure number for math operations
+            inventoryCount: Number(s.inventoryCount),
             floweringTimeWeeks: Number(s.floweringTimeWeeks),
             isLandrace: s.isLandrace ?? false,
             parents: s.parents || [],
@@ -118,7 +130,6 @@ const App: React.FC = () => {
       { id: '26', name: 'Taskurgan', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
       { id: '27', name: 'Xinjiang', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
     ];
-    
     return defaultStrains.map(s => ({ 
       ...s, 
       cost: 0, 
@@ -158,7 +169,6 @@ const App: React.FC = () => {
     setSettings(newSettings);
   };
 
-  // --- Logging Helper ---
   const addLog = (log: Omit<UsageLog, 'id' | 'date'>) => {
     const newLog: UsageLog = {
       ...log,
@@ -168,24 +178,23 @@ const App: React.FC = () => {
     setHistory(prev => [newLog, ...prev]);
   };
 
-  // --- Agentic Action Handler ---
+  // --- Unified Agentic Action Handler ---
   const handleAgentAction = (action: AgentAction) => {
-    // 1. Navigation
     if (action.type === 'NAVIGATE' && action.payload) {
         const view = action.payload as View;
         if (['dashboard', 'nutrients', 'strains', 'breeding', 'order', 'analytics', 'assistant', 'news', 'settings'].includes(view)) {
             setCurrentView(view);
             setIsSidebarOpen(false);
+            // Hide widget if navigating to assistant view
+            if (view === 'assistant') setIsAssistantOpen(false);
         }
     }
-    // 2. Move Breeding Project
     else if (action.type === 'MOVE_PROJECT' && action.payload) {
         const { id, status } = action.payload;
         if (id && status) {
             setBreedingProjects(prev => prev.map(p => p.id === id ? { ...p, status } : p));
         }
     }
-    // 3. Create Breeding Project
     else if (action.type === 'CREATE_PROJECT' && action.payload) {
         const { motherId, fatherId, name, notes } = action.payload;
         if (motherId && fatherId) {
@@ -203,10 +212,61 @@ const App: React.FC = () => {
     }
   };
 
-  // --- AI Trigger Helper ---
+  // --- Unified Message Handler ---
+  const handleUnifiedSendMessage = async (text: string, attachments: Attachment[], modelId: AiModelId) => {
+    // 1. Update UI with User Message
+    const newHistory = [...chatHistory, { role: 'user' as const, text }];
+    setChatHistory(newHistory);
+    setIsChatLoading(true);
+
+    // 2. Add placeholder for AI response
+    setChatHistory(prev => [...prev, { role: 'model', text: '', isThinking: modelId.includes('thinking') }]);
+
+    // 3. Prepare Context based on Current View
+    // If the widget is open on the 'nutrients' page, we might want to prioritize nutrient context
+    // The service handles full context context anyway, but we pass currentView for specific framing.
+    
+    try {
+      await askGrowAssistant(
+        newHistory, 
+        { nutrients, strains, breedingProjects, currentView }, 
+        settings,
+        attachments,
+        modelId,
+        (streamedText, isThinking) => {
+          setChatHistory(prev => {
+             const updated = [...prev];
+             updated[updated.length - 1] = { role: 'model', text: streamedText, isThinking };
+             return updated;
+          });
+        },
+        handleAgentAction
+      );
+    } catch (error) {
+      setChatHistory(prev => {
+         const updated = [...prev];
+         updated[updated.length - 1] = { role: 'model', text: "Connection Error. Please check settings." };
+         return updated;
+      });
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
+  // --- AI Trigger from Child Components ---
   const triggerGlobalAI = (prompt: string) => {
-    setAssistantPrompt(prompt);
-    setIsAssistantOpen(true);
+    // If on assistant page, just send message. If elsewhere, open widget.
+    handleUnifiedSendMessage(prompt, [], settings.preferredModel || 'gemini-2.5-flash');
+    if (currentView !== 'assistant') {
+        setIsAssistantOpen(true);
+    }
+  };
+
+  const clearChat = () => {
+    setChatHistory([{ 
+      role: 'model', 
+      text: `Chat cleared. Ready for a fresh start, ${settings.userName}.` 
+    }]);
   };
 
   const NavItem = ({ view, icon: Icon, label }: { view: View; icon: any; label: string }) => (
@@ -214,6 +274,7 @@ const App: React.FC = () => {
       onClick={() => {
         setCurrentView(view);
         setIsSidebarOpen(false);
+        if (view === 'assistant') setIsAssistantOpen(false);
       }}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors mb-1 ${
         currentView === view 
@@ -280,7 +341,21 @@ const App: React.FC = () => {
         {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
         {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} breedingProjects={breedingProjects} setBreedingProjects={setBreedingProjects} settings={settings} onTriggerAI={triggerGlobalAI} />}
         {currentView === 'order' && <OrderPage nutrients={nutrients} setNutrients={setNutrients} strains={strains} setStrains={setStrains} settings={settings} />}
-        {currentView === 'assistant' && <AIAssistant nutrients={nutrients} strains={strains} breedingProjects={breedingProjects} settings={settings} onAgentAction={handleAgentAction} currentView={currentView} />}
+        
+        {/* Full Page Assistant */}
+        {currentView === 'assistant' && (
+            <AIAssistant 
+                chatHistory={chatHistory}
+                isLoading={isChatLoading}
+                onSendMessage={handleUnifiedSendMessage}
+                onClearChat={clearChat}
+                nutrients={nutrients} 
+                strains={strains} 
+                breedingProjects={breedingProjects} 
+                settings={settings} 
+            />
+        )}
+        
         {currentView === 'news' && <NewsFeed settings={settings} />}
         {currentView === 'analytics' && <Analytics history={history} nutrients={nutrients} strains={strains} settings={settings} />}
         {currentView === 'settings' && <Settings settings={settings} onSave={handleSaveSettings} />}
@@ -289,16 +364,12 @@ const App: React.FC = () => {
         {currentView !== 'assistant' && (
           <>
             <GlobalAssistant 
-              nutrients={nutrients} 
-              strains={strains} 
-              breedingProjects={breedingProjects}
-              settings={settings} 
+              chatHistory={chatHistory}
+              isLoading={isChatLoading}
+              onSendMessage={handleUnifiedSendMessage}
               isOpen={isAssistantOpen} 
               setIsOpen={setIsAssistantOpen} 
-              currentView={currentView}
-              initialPrompt={assistantPrompt}
-              onClearInitialPrompt={() => setAssistantPrompt('')}
-              onAgentAction={handleAgentAction}
+              settings={settings} 
             />
             
             {/* Assistant Trigger FAB (Only show if not open) */}

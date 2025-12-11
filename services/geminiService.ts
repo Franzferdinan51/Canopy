@@ -275,7 +275,12 @@ export const askGrowAssistant = async (
 
   // Prepare contents with attachments
   const lastMessageText = history[history.length - 1].text;
-  const userContentParts: any[] = [{ text: lastMessageText }];
+  const userContentParts: any[] = [];
+  
+  // Only add text part if it's not empty, otherwise API might complain if there are attachments
+  if (lastMessageText && lastMessageText.trim() !== "") {
+     userContentParts.push({ text: lastMessageText });
+  }
   
   attachments.forEach(att => {
     userContentParts.push({
@@ -285,6 +290,11 @@ export const askGrowAssistant = async (
       }
     });
   });
+
+  // Fallback: If for some reason parts is empty (e.g. whitespace only text and no files), add the text back
+  if (userContentParts.length === 0) {
+     userContentParts.push({ text: lastMessageText || " " });
+  }
 
   // Construct history for API (Standard text history + current multimedia message)
   const pastHistory = history.slice(0, -1).map(h => ({
@@ -301,8 +311,7 @@ export const askGrowAssistant = async (
     });
 
     const streamResponse = await chat.sendMessageStream({ 
-      role: 'user', 
-      parts: userContentParts 
+      message: userContentParts 
     });
 
     let fullText = '';

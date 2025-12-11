@@ -1,45 +1,28 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Nutrient, Strain, UserSettings, Attachment, AiModelId, BreedingProject } from '../types';
-import { askGrowAssistant, fileToGenerativePart } from '../services/geminiService';
-import { Send, Bot, User, X, Minimize2, Maximize2, Paperclip, Mic, Brain, Loader2 } from 'lucide-react';
+import { UserSettings, Attachment, AiModelId, ChatMessage } from '../types';
+import { fileToGenerativePart } from '../services/geminiService';
+import { Send, Bot, X, Minimize2, Maximize2, Paperclip, Mic, Brain } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface GlobalAssistantProps {
-  nutrients: Nutrient[];
-  strains: Strain[];
-  breedingProjects?: BreedingProject[];
-  settings: UserSettings;
+  chatHistory: ChatMessage[];
+  isLoading: boolean;
+  onSendMessage: (text: string, attachments: Attachment[], modelId: AiModelId) => void;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
-  currentView: string;
-  initialPrompt?: string;
-  onClearInitialPrompt?: () => void;
-  onAgentAction?: (action: any) => void;
-}
-
-interface Message {
-  role: 'user' | 'model';
-  text: string;
+  settings: UserSettings;
 }
 
 export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({ 
-  nutrients, 
-  strains, 
-  breedingProjects = [],
-  settings, 
+  chatHistory,
+  isLoading,
+  onSendMessage,
   isOpen, 
   setIsOpen,
-  currentView,
-  initialPrompt,
-  onClearInitialPrompt,
-  onAgentAction
+  settings
 }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: `Hi ${settings.userName}! Ask me anything about your inventory or tell me to navigate the app.` }
-  ]);
   const [query, setQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isListening, setIsListening] = useState(false);
@@ -49,20 +32,13 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (initialPrompt && isOpen) {
-        handleSubmit(undefined, initialPrompt);
-        if (onClearInitialPrompt) onClearInitialPrompt();
-    }
-  }, [initialPrompt, isOpen]);
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isOpen, isMinimized]);
+  }, [chatHistory, isOpen, isMinimized]);
 
   const toggleListening = () => {
     if (isListening) {
@@ -93,54 +69,19 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
     }
   };
 
-  const handleSubmit = async (e?: React.FormEvent, manualQuery?: string) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const textToSend = manualQuery || query;
-    if ((!textToSend.trim() && attachments.length === 0) || isLoading) return;
+    if ((!query.trim() && attachments.length === 0) || isLoading) return;
 
-    setQuery('');
+    const textToSend = query;
     const currentAttachments = [...attachments];
+    
+    setQuery('');
     setAttachments([]);
     
-    setMessages(prev => [...prev, { role: 'user', text: textToSend }]);
-    setIsLoading(true);
-    setMessages(prev => [...prev, { role: 'model', text: '' }]);
-
-    // Context Context
-    let contextPrefix = "";
-    if (currentView === 'nutrients') contextPrefix = "[Context: Nutrient View]. ";
-    if (currentView === 'strains') contextPrefix = "[Context: Strain Library]. ";
-    if (currentView === 'breeding') contextPrefix = "[Context: Breeding Lab]. ";
+    onSendMessage(textToSend, currentAttachments, selectedModel);
     
-    // Create temp history with context injected for AI
-    const apiMessages = [...messages, { role: 'user' as const, text: contextPrefix + textToSend }];
-
-    try {
-      await askGrowAssistant(
-        apiMessages, 
-        { nutrients, strains, breedingProjects, currentView }, 
-        settings,
-        currentAttachments,
-        selectedModel,
-        (streamedText) => {
-          setMessages(prev => {
-             const updated = [...prev];
-             updated[updated.length - 1] = { role: 'model', text: streamedText };
-             return updated;
-          });
-        },
-        onAgentAction
-      );
-    } catch (error) {
-      setMessages(prev => {
-         const updated = [...prev];
-         updated[updated.length - 1] = { role: 'model', text: "Connection error." };
-         return updated;
-      });
-    } finally {
-      setIsLoading(false);
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   if (!isOpen) return null;
@@ -191,7 +132,7 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
       {!isMinimized && (
         <>
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white dark:bg-gray-900">
-            {messages.map((msg, idx) => (
+            {chatHistory.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-xl p-3 text-sm shadow-sm ${
                   msg.role === 'user' 

@@ -1,23 +1,19 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Nutrient, Strain, UserSettings, Attachment, AiModelId, BreedingProject } from '../types';
-import { askGrowAssistant, fileToGenerativePart } from '../services/geminiService';
-import { Send, Bot, User, Sparkles, Trash2, Zap, Droplet, Sprout, Activity, ThermometerSun, Mic, Paperclip, X, Brain, Volume2, Headphones, MicOff, PhoneOff, Waves } from 'lucide-react';
+import { Nutrient, Strain, UserSettings, Attachment, AiModelId, BreedingProject, ChatMessage } from '../types';
+import { fileToGenerativePart } from '../services/geminiService';
+import { Send, Bot, User, Sparkles, Trash2, Zap, Droplet, Sprout, Activity, ThermometerSun, Mic, Paperclip, X, Brain, Volume2, Headphones, MicOff, PhoneOff } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface AIAssistantProps {
+  chatHistory: ChatMessage[];
+  isLoading: boolean;
+  onSendMessage: (text: string, attachments: Attachment[], modelId: AiModelId) => void;
+  onClearChat: () => void;
   nutrients: Nutrient[];
   strains: Strain[];
   breedingProjects?: BreedingProject[];
   settings: UserSettings;
-  onAgentAction?: (action: any) => void;
-  currentView?: string;
-}
-
-interface Message {
-  role: 'user' | 'model';
-  text: string;
-  isThinking?: boolean;
 }
 
 const QUICK_PROMPTS = [
@@ -46,7 +42,6 @@ const LiveSessionOverlay = ({
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef<any>(null);
   const synthesisRef = useRef<SpeechSynthesis>(window.speechSynthesis);
-  const silenceTimerRef = useRef<any>(null);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -237,20 +232,17 @@ const LiveSessionOverlay = ({
   );
 };
 
-export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, breedingProjects = [], settings, onAgentAction, currentView }) => {
+export const AIAssistant: React.FC<AIAssistantProps> = ({ 
+  chatHistory, 
+  isLoading, 
+  onSendMessage, 
+  onClearChat,
+  settings 
+}) => {
   const [query, setQuery] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      role: 'model', 
-      text: `Hello ${settings.userName}! I'm Canopy, your Agentic Grow Consultant. I have control over your **${nutrients.length} nutrients**, **${strains.length} strains**, and **${breedingProjects.length} breeding projects**. Ask me to analyze images, navigate the app, or plan your grow!` 
-    }
-  ]);
-  const [isLoading, setIsLoading] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [selectedModel, setSelectedModel] = useState<AiModelId>(settings.preferredModel || 'gemini-2.5-flash');
-  
-  // Live Mode State
   const [isLiveMode, setIsLiveMode] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -263,7 +255,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [chatHistory]);
 
   // --- Voice Input Logic (Standard) ---
   const toggleListening = () => {
@@ -271,26 +263,21 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
       setIsListening(false);
       return;
     }
-
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert("Your browser does not support Voice Recognition.");
       return;
     }
-
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = 'en-US';
-
     recognition.onstart = () => setIsListening(true);
     recognition.onend = () => setIsListening(false);
-    
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
       setQuery(prev => prev + (prev ? ' ' : '') + transcript);
     };
-
     recognition.start();
   };
 
@@ -299,7 +286,6 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    // Remove markdown symbols for cleaner speech
     utterance.text = text.replace(/[*#`_]/g, ''); 
     window.speechSynthesis.speak(utterance);
   };
@@ -322,63 +308,28 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
   };
 
   // --- Submission ---
-  const handleSubmit = async (e?: React.FormEvent, manualQuery?: string, onComplete?: () => void) => {
+  const handleSubmit = (e?: React.FormEvent, manualQuery?: string) => {
     if (e) e.preventDefault();
     const textToSend = manualQuery || query;
     if ((!textToSend.trim() && attachments.length === 0) || isLoading) return;
 
     setQuery('');
     const currentAttachments = [...attachments];
-    setAttachments([]); // Clear immediately
+    setAttachments([]);
     
-    // Optimistic Update
-    const newHistory: Message[] = [...messages, { role: 'user', text: textToSend }];
-    setMessages(newHistory);
-    setIsLoading(true);
-
-    // Placeholder for response
-    setMessages(prev => [...prev, { role: 'model', text: '', isThinking: selectedModel.includes('thinking') }]);
-
-    try {
-      await askGrowAssistant(
-        newHistory, 
-        { nutrients, strains, breedingProjects, currentView: currentView || 'assistant' }, 
-        settings,
-        currentAttachments,
-        selectedModel,
-        (streamedText, isThinking) => {
-          setMessages(prev => {
-             const updated = [...prev];
-             updated[updated.length - 1] = { role: 'model', text: streamedText, isThinking };
-             return updated;
-          });
-        },
-        onAgentAction
-      );
-    } catch (error) {
-      setMessages(prev => {
-         const updated = [...prev];
-         updated[updated.length - 1] = { role: 'model', text: "Connection Error." };
-         return updated;
-      });
-    } finally {
-      setIsLoading(false);
-      setTimeout(() => inputRef.current?.focus(), 100);
-      if (onComplete) onComplete();
-    }
+    onSendMessage(textToSend, currentAttachments, selectedModel);
+    
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   const handleClearChat = () => {
     if(confirm("Clear conversation history?")) {
-      setMessages([{ 
-        role: 'model', 
-        text: `Chat cleared. Ready for a fresh start, ${settings.userName}.` 
-      }]);
+      onClearChat();
     }
   };
 
-  const lastModelMessage = messages.length > 0 && messages[messages.length - 1].role === 'model' 
-    ? messages[messages.length - 1].text 
+  const lastModelMessage = chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === 'model' 
+    ? chatHistory[chatHistory.length - 1].text 
     : '';
 
   return (
@@ -447,11 +398,10 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-4">
-        {messages.map((msg, idx) => (
+        {chatHistory.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
             <div className={`flex max-w-[90%] md:max-w-[75%] gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
               
-              {/* Avatar */}
               <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-1 ${
                 msg.role === 'user' 
                   ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300' 
@@ -460,14 +410,12 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
                 {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
               </div>
 
-              {/* Message Bubble */}
               <div className={`relative p-4 rounded-2xl text-sm leading-relaxed shadow-sm group ${
                 msg.role === 'user' 
                   ? 'bg-gray-800 text-white rounded-tr-none' 
                   : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
               }`}>
                  
-                 {/* Thinking Indicator */}
                  {msg.role === 'model' && msg.isThinking && !msg.text && (
                     <div className="flex items-center gap-2 text-purple-500 mb-2 animate-pulse">
                         <Brain size={14} />
@@ -482,7 +430,6 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
                           {msg.text}
                         </ReactMarkdown>
                      </div>
-                     {/* Read Aloud Button */}
                      {msg.role === 'model' && (
                         <button 
                             onClick={() => speakText(msg.text)}
@@ -534,7 +481,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
         )}
 
         {/* Quick Prompts */}
-        {!isLoading && messages.length < 3 && (
+        {!isLoading && chatHistory.length < 3 && (
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {QUICK_PROMPTS.map((qp, i) => (
               <button
@@ -551,7 +498,6 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
 
         <form onSubmit={(e) => handleSubmit(e)} className="flex items-end gap-2 relative">
           
-          {/* File Input */}
           <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} accept="image/*" />
           <button 
              type="button" 
@@ -561,7 +507,6 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
             <Paperclip size={20} />
           </button>
 
-          {/* Text Input */}
           <div className="flex-1 relative">
             <input 
                 ref={inputRef}
@@ -574,7 +519,6 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
             />
           </div>
 
-          {/* Voice Button */}
           <button 
              type="button"
              onClick={toggleListening}
@@ -583,7 +527,6 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, br
              <Mic size={20} />
           </button>
 
-          {/* Send Button */}
           <button 
             type="submit" 
             disabled={isLoading || (!query.trim() && attachments.length === 0)}
