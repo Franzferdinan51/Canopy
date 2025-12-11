@@ -14,6 +14,8 @@ export interface Nutrient {
   type: NutrientType;
   volumeLiters: number;
   bottleCount: number;
+  cost?: number; // Price per bottle
+  currency?: string;
   notes?: string;
 }
 
@@ -36,12 +38,26 @@ export interface Strain {
   type: StrainType;
   floweringTimeWeeks: number;
   inventoryCount: number; // Seeds or Clones
+  cost?: number; // Price per pack
+  rating?: number; // 0-5 stars
   isAuto: boolean;
   isLandrace: boolean;
   notes?: string;
-  infoUrl?: string; // URL to breeder info or seed bank
-  parents?: LineageNode[]; // Max 2
-  grandparents?: LineageNode[]; // Max 4
+  infoUrl?: string; 
+  parents?: LineageNode[]; 
+  grandparents?: LineageNode[]; 
+}
+
+export interface UsageLog {
+  id: string;
+  date: string; // ISO String
+  itemId: string;
+  itemName: string;
+  category: 'Nutrient' | 'Strain';
+  action: 'Dose' | 'Germinate' | 'Restock' | 'Adjustment' | 'Harvest';
+  amount: number; // e.g. 5 (seeds), 50 (ml)
+  unit: string;
+  note?: string;
 }
 
 export interface UserSettings {
@@ -49,7 +65,7 @@ export interface UserSettings {
   experienceLevel: 'Beginner' | 'Intermediate' | 'Master';
   aiProvider: 'gemini' | 'lm-studio';
   geminiApiKey: string;
-  lmStudioUrl: string; // e.g., http://localhost:1234/v1
+  lmStudioUrl: string; 
   lmStudioModel: string;
   theme: 'light' | 'dark';
 }
@@ -68,24 +84,19 @@ export interface Phenotype {
 }
 
 export interface BreedingRecommendation {
-  partnerId: string; // ID from user inventory
+  partnerId: string; 
   partnerName: string;
-  projectedName: string; // Creative name for the child
-  synergyAnalysis: string; // Why they fit together
+  projectedName: string; 
+  synergyAnalysis: string; 
   dominantTerpenes: string[];
   potentialPhenotypes: Phenotype[];
 }
 
 export interface GeneticAnalysis {
   strainName: string;
-  parents: LineageNode[]; // Usually 2
-  grandparents: LineageNode[]; // Usually 4
+  parents: LineageNode[]; 
+  grandparents: LineageNode[]; 
   recommendations: BreedingRecommendation[];
 }
 
-export interface GrowOpState {
-  nutrients: Nutrient[];
-  strains: Strain[];
-}
-
-export type View = 'dashboard' | 'nutrients' | 'strains' | 'assistant' | 'settings' | 'news' | 'breeding';
+export type View = 'dashboard' | 'nutrients' | 'strains' | 'assistant' | 'settings' | 'news' | 'breeding' | 'analytics';

@@ -1,10 +1,9 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { Nutrient, Strain, NutrientType, StrainType, UserSettings, NewsArticle, GeneticAnalysis } from '../types';
+import { Nutrient, Strain, NutrientType, StrainType, UserSettings, NewsArticle, GeneticAnalysis, UsageLog } from '../types';
 
 // --- Gemini Client ---
 const getAiClient = (apiKey: string) => {
-  // Use user provided key, fallback to env, or throw error
   const key = apiKey || process.env.API_KEY;
   if (!key) {
     throw new Error("API Key not found. Please check your settings.");
@@ -26,13 +25,12 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
-// --- Inventory Scanning (Gemini Only for Vision Reliability) ---
+// --- Inventory Scanning ---
 export const scanInventoryItem = async (
   base64Image: string, 
   mode: 'nutrient' | 'strain',
   settings: UserSettings
 ): Promise<Partial<Nutrient | Strain>> => {
-  // We strictly use Gemini for vision tasks as it's more reliable than setting up local vision models for most users
   const ai = getAiClient(settings.geminiApiKey);
   const modelId = "gemini-2.5-flash";
 
@@ -91,7 +89,7 @@ export const scanInventoryItem = async (
   }
 };
 
-// --- LM Studio / OpenAI Compatible Client ---
+// --- LM Studio Client ---
 const callLmStudio = async (
   messages: any[], 
   settings: UserSettings, 
@@ -99,8 +97,6 @@ const callLmStudio = async (
 ): Promise<string> => {
   try {
     const url = `${settings.lmStudioUrl.replace(/\/$/, '')}/chat/completions`;
-    
-    // Prepend system instruction to messages for OpenAI format
     const fullMessages = [
       { role: "system", content: systemInstruction },
       ...messages
@@ -108,9 +104,7 @@ const callLmStudio = async (
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: settings.lmStudioModel || "local-model",
         messages: fullMessages,
@@ -130,10 +124,7 @@ const callLmStudio = async (
   }
 };
 
-/**
- * Grow Assistant Chat - Context Aware & Agentic
- * Supports Streaming
- */
+// --- Grow Assistant ---
 export const askGrowAssistant = async (
   history: { role: string; text: string }[],
   inventoryContext: { nutrients: Nutrient[], strains: Strain[] },
@@ -141,12 +132,10 @@ export const askGrowAssistant = async (
   onStreamUpdate?: (fullText: string) => void
 ): Promise<string> => {
   
-  // 1. Build Context
   const nutrientList = inventoryContext.nutrients.map(n => `- ${n.brand} ${n.name} (${n.npk}, ${n.bottleCount} bottles)`).join('\n');
   const strainList = inventoryContext.strains.map(s => `- ${s.breeder} ${s.name} (${s.type}, ${s.floweringTimeWeeks}w, ${s.inventoryCount} seeds)`).join('\n');
   const currentDate = new Date().toLocaleDateString();
 
-  // 2. Build Agentic System Prompt
   const systemInstruction = `You are Canopy, an expert master grower AI agent managed by ${settings.userName} (${settings.experienceLevel} grower).
   Current Date: ${currentDate}.
   
@@ -162,35 +151,27 @@ export const askGrowAssistant = async (
   ${strainList || "No strains listed in library."}
   
   GUIDELINES:
-  - **Be Proactive**: If the user asks for a schedule, cross-reference their Nutrient list. If they are missing CalMag or a Base Nutrient, WARN them specifically.
+  - **Be Proactive**: If the user asks for a schedule, cross-reference their Nutrient list.
   - **Be Adaptive**: Tailor advice to a "${settings.experienceLevel}" level.
-    - Beginner: Explain the 'Why' simply. Focus on pH and watering.
-    - Master: Focus on EC/PPM, VPD targets, and Crop Steering.
-  - **Be Concise**: Use Markdown. Use lists. Do not ramble.
+  - **Be Concise**: Use Markdown.
   `;
 
   const lastMessage = history[history.length - 1].text;
 
-  // 3. Route to Provider
   if (settings.aiProvider === 'lm-studio') {
-    // Convert history format for OpenAI/LM Studio
     const apiMessages = history.map(h => ({
       role: h.role === 'model' ? 'assistant' : 'user',
       content: h.text
     }));
-    // Note: Streaming not implemented for fetch-based LM Studio in this version
     const response = await callLmStudio(apiMessages, settings, systemInstruction);
     if (onStreamUpdate) onStreamUpdate(response);
     return response;
   } else {
-    // Gemini Route
     try {
       const ai = getAiClient(settings.geminiApiKey);
       const chat = ai.chats.create({
         model: "gemini-2.5-flash",
-        config: {
-          systemInstruction: systemInstruction,
-        },
+        config: { systemInstruction: systemInstruction },
         history: history.slice(0, -1).map(h => ({
           role: h.role,
           parts: [{ text: h.text }]
@@ -212,9 +193,7 @@ export const askGrowAssistant = async (
         const response = await chat.sendMessage({ message: lastMessage });
         return response.text || "I couldn't generate a response.";
       }
-
     } catch (error) {
-      console.error("Gemini Chat Error:", error);
       const errText = "Error connecting to Gemini. Please check your API Key in settings.";
       if (onStreamUpdate) onStreamUpdate(errText);
       return errText;
@@ -222,24 +201,19 @@ export const askGrowAssistant = async (
   }
 };
 
-/**
- * Analyze Genetic Lineage and suggest Cross Breeding
- */
+// --- Analyze Genetics ---
 export const analyzeGenetics = async (
   targetStrain: Strain,
   inventory: Strain[],
   settings: UserSettings
 ): Promise<GeneticAnalysis> => {
-  
   const ai = getAiClient(settings.geminiApiKey);
   
-  // Filter inventory to exclude the target strain itself
   const potentialPartners = inventory
     .filter(s => s.id !== targetStrain.id)
     .map(s => JSON.stringify({ id: s.id, name: s.name, type: s.type, breeder: s.breeder }))
     .join('\n');
 
-  // Include user provided lineage if available
   let knownLineageContext = "";
   if (targetStrain.parents && targetStrain.parents.length > 0) {
     const parentStr = targetStrain.parents.map(p => `${p.name} (${p.type})`).join(', ');
@@ -251,48 +225,20 @@ export const analyzeGenetics = async (
   }
 
   const prompt = `Analyze the cannabis strain "${targetStrain.name}" by ${targetStrain.breeder}.
+  ${knownLineageContext ? `IMPORTANT: Use this lineage:\n${knownLineageContext}` : 'TASK 1: Determine lineage.'}
   
-  ${knownLineageContext ? `IMPORTANT - USE THIS KNOWN LINEAGE DATA provided by the grower:\n${knownLineageContext}\nDo not hallucinate different parents if they are listed above.` : 'TASK 1: Determine its Lineage (Parents/Grandparents). If custom/unknown, make an educated guess.'}
-  
-  TASK 2: Suggest Breeding Matches
-  Review the provided list of "Potential Partners" from my inventory.
-  Select 3 strains that would make a scientifically or aesthetically interesting cross-breed with "${targetStrain.name}".
-  Invent a creative "Projected Name" for the offspring.
-  Explain the synergy (e.g., combining terpenes, yield, growth structure).
-  Identify the top 3 dominant terpenes likely to be present in this cross.
-  Predict 2 potential phenotypes (e.g., "Pheno 1: Tall, heavy yield, fruity").
-
+  TASK 2: Suggest Breeding Matches from "Potential Partners".
   Potential Partners List:
   ${potentialPartners}
 
-  Return valid JSON matching this schema:
-  {
-    "strainName": "${targetStrain.name}",
-    "parents": [{"name": "string", "type": "Indica/Sativa/Hybrid"}], (Max 2)
-    "grandparents": [{"name": "string", "type": "Indica/Sativa/Hybrid"}], (Max 4)
-    "recommendations": [
-      {
-        "partnerId": "id from list",
-        "partnerName": "name from list",
-        "projectedName": "Creative Name",
-        "synergyAnalysis": "Why this is a good match",
-        "dominantTerpenes": ["Myrcene", "Limonene", "etc"],
-        "potentialPhenotypes": [
-           { "name": "Pheno 1", "description": "Description of structure and smell" },
-           { "name": "Pheno 2", "description": "Description of structure and smell" }
-        ]
-      }
-    ]
-  }
+  Return valid JSON matching GeneticAnalysis schema.
   `;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
-      config: {
-        responseMimeType: "application/json"
-      }
+      config: { responseMimeType: "application/json" }
     });
 
     if (response.text) {
@@ -300,65 +246,72 @@ export const analyzeGenetics = async (
     }
     throw new Error("No data returned");
   } catch (error) {
-    console.error("Genetics Analysis Error:", error);
     throw error;
   }
 };
 
-/**
- * Fetch Cannabis News using Google Search Grounding with Structured JSON output
- */
+// --- Analyze Usage History ---
+export const analyzeGrowData = async (
+  logs: UsageLog[],
+  nutrients: Nutrient[],
+  strains: Strain[],
+  settings: UserSettings
+): Promise<string> => {
+  const ai = getAiClient(settings.geminiApiKey);
+
+  const logSummary = logs.slice(0, 50).map(l => `${l.date}: ${l.action} ${l.amount}${l.unit} of ${l.itemName} (${l.category})`).join('\n');
+  const totalValue = nutrients.reduce((acc, n) => acc + ((n.cost || 0) * (n.bottleCount || 0)), 0) + 
+                     strains.reduce((acc, s) => acc + (s.cost || 0), 0);
+
+  const prompt = `Analyze this grower's data log and inventory value.
+  
+  Inventory Value: $${totalValue} (approx).
+  Recent Activity Log:
+  ${logSummary}
+
+  Provide 3 key insights in Markdown:
+  1. **Cost Efficiency**: Comment on spending/value.
+  2. **Usage Trends**: Are they using specific nutrients heavily? Are they popping a lot of seeds?
+  3. **Recommendation**: Suggest a bulk purchase or process change.
+  
+  Keep it brief and analytical.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: prompt
+  });
+
+  return response.text || "Could not analyze data.";
+};
+
+// --- News ---
 export const fetchCannabisNews = async (settings: UserSettings, category: string = 'Latest'): Promise<NewsArticle[]> => {
   try {
     const ai = getAiClient(settings.geminiApiKey);
     const currentDate = new Date().toLocaleDateString();
-    
-    // Customize prompt based on category
-    let categoryQuery = "";
-    switch(category) {
-      case 'Legislation': categoryQuery = "specifically regarding Cannabis legalization, laws, and bills"; break;
-      case 'Cultivation': categoryQuery = "specifically regarding Cannabis growing techniques, horticulture, and cultivation science"; break;
-      case 'Business': categoryQuery = "specifically regarding Cannabis stocks, industry mergers, and market trends"; break;
-      case 'Medical': categoryQuery = "specifically regarding Medical Marijuana research, health benefits, and studies"; break;
-      default: categoryQuery = "regarding Cannabis legislation, industry, and culture";
-    }
+    let categoryQuery = "regarding Cannabis legislation, industry, and culture";
+    if (category !== 'Latest') categoryQuery = `specifically regarding Cannabis ${category}`;
 
     const prompt = `Find 8 most important and recent news stories ${categoryQuery} in the USA as of today, ${currentDate}.
-    
-    Return a valid JSON array where each object has the following keys:
-    - headline (string)
-    - summary (string, max 2 sentences)
-    - source (string, name of the news outlet)
-    - url (string, the link to the article if found, otherwise use a search link)
-    - date (string, e.g. "Oct 12")
-    
-    Output strictly valid JSON. Do not wrap in markdown code blocks.
-    `;
+    Return a valid JSON array of NewsArticle objects (headline, summary, source, url, date).
+    Output strictly valid JSON.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-        // Note: responseMimeType and responseSchema cannot be used with googleSearch
-      }
+      config: { tools: [{ googleSearch: {} }] }
     });
 
     if (response.text) {
       let cleanedText = response.text.trim();
-      // Remove markdown code blocks if present (```json ... ```)
       if (cleanedText.startsWith('```')) {
         cleanedText = cleanedText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
       }
-      
-      const articles = JSON.parse(cleanedText) as NewsArticle[];
-      return articles;
+      return JSON.parse(cleanedText) as NewsArticle[];
     }
-    
     return [];
-
   } catch (error) {
-    console.error("News Fetch Error:", error);
-    throw new Error("Failed to fetch news. Ensure you have a valid Gemini API Key enabled.");
+    throw new Error("Failed to fetch news.");
   }
 };

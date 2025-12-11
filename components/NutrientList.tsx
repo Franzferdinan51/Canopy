@@ -1,19 +1,22 @@
 
 import React, { useState, useRef } from 'react';
-import { Nutrient, NutrientType, UserSettings } from '../types';
-import { Plus, Trash2, Camera, Droplet, Loader2, Pencil, Package } from 'lucide-react';
+import { Nutrient, NutrientType, UserSettings, UsageLog } from '../types';
+import { Plus, Trash2, Camera, Droplet, Loader2, Pencil, Package, History, DollarSign } from 'lucide-react';
 import { fileToGenerativePart, scanInventoryItem } from '../services/geminiService';
 
 interface NutrientListProps {
   nutrients: Nutrient[];
   setNutrients: React.Dispatch<React.SetStateAction<Nutrient[]>>;
   settings: UserSettings;
+  addLog: (log: Omit<UsageLog, 'id' | 'date'>) => void;
 }
 
-export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrients, settings }) => {
+export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrients, settings, addLog }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedNutrient, setSelectedNutrient] = useState<Nutrient | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form State
@@ -24,8 +27,13 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
     type: NutrientType.BASE,
     volumeLiters: 1,
     bottleCount: 1,
+    cost: 0,
     notes: ''
   });
+
+  // Dose Log State
+  const [doseAmount, setDoseAmount] = useState<number>(10);
+  const [doseUnit, setDoseUnit] = useState<'ml' | 'bottle'>('ml');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -42,6 +50,15 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
         id: crypto.randomUUID(),
       };
       setNutrients(prev => [...prev, newNutrient]);
+      addLog({
+        itemId: newNutrient.id,
+        itemName: newNutrient.name,
+        category: 'Nutrient',
+        action: 'Restock',
+        amount: formData.bottleCount,
+        unit: 'bottles',
+        note: 'Initial inventory add'
+      });
     }
     
     setIsModalOpen(false);
@@ -62,10 +79,39 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
       type: nutrient.type,
       volumeLiters: nutrient.volumeLiters,
       bottleCount: nutrient.bottleCount || 1,
+      cost: nutrient.cost || 0,
       notes: nutrient.notes || ''
     });
     setEditingId(nutrient.id);
     setIsModalOpen(true);
+  };
+
+  const openLogModal = (nutrient: Nutrient) => {
+    setSelectedNutrient(nutrient);
+    setDoseAmount(10);
+    setDoseUnit('ml');
+    setIsLogModalOpen(true);
+  };
+
+  const submitLog = () => {
+    if (!selectedNutrient) return;
+
+    addLog({
+      itemId: selectedNutrient.id,
+      itemName: selectedNutrient.name,
+      category: 'Nutrient',
+      action: 'Dose',
+      amount: doseAmount,
+      unit: doseUnit,
+      note: 'Manual dose entry'
+    });
+
+    if (doseUnit === 'bottle') {
+       // Reduce bottle count if logging whole bottles
+       setNutrients(prev => prev.map(n => n.id === selectedNutrient.id ? { ...n, bottleCount: Math.max(0, n.bottleCount - doseAmount) } : n));
+    }
+
+    setIsLogModalOpen(false);
   };
 
   const resetForm = () => {
@@ -76,6 +122,7 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
       type: NutrientType.BASE,
       volumeLiters: 1,
       bottleCount: 1,
+      cost: 0,
       notes: ''
     });
     setEditingId(null);
@@ -107,10 +154,9 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
         type: (data as any).type as NutrientType || prev.type,
       }));
     } catch (error) {
-      alert("Failed to scan image. Please enter details manually or check your Gemini API key in settings.");
+      alert("Failed to scan image.");
     } finally {
       setIsScanning(false);
-      // clear input
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -153,40 +199,36 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
               
               <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500 dark:text-blue-400">
-                    <span className="text-xs font-bold">N</span>
-                  </div>
+                  <span className="w-5 h-5 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-xs font-bold text-blue-500">N</span>
                   <span>NPK: <span className="font-mono font-medium">{nutrient.npk}</span></span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500 dark:text-blue-400">
-                    <Droplet size={12} />
-                  </div>
-                  <span>Size: {nutrient.volumeLiters}L</span>
+                   <Package size={14} className="text-blue-500" />
+                   <span>{nutrient.bottleCount} bottles ({nutrient.volumeLiters}L)</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500 dark:text-blue-400">
-                    <Package size={12} />
-                  </div>
-                  <span>Bottles: {nutrient.bottleCount}</span>
-                </div>
+                {nutrient.cost && (
+                   <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                     <DollarSign size={14} />
+                     <span>${nutrient.cost} / unit</span>
+                   </div>
+                )}
               </div>
             </div>
+
+            <button 
+              onClick={() => openLogModal(nutrient)}
+              className="mt-4 w-full py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-canopy-50 dark:hover:bg-canopy-900/20 hover:text-canopy-600 dark:hover:text-canopy-400 transition-colors flex items-center justify-center gap-2"
+            >
+              <History size={16} /> Log Dose / Usage
+            </button>
           </div>
         ))}
-        
-        {nutrients.length === 0 && (
-          <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400 dark:text-gray-600 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-800">
-            <Droplet size={48} className="mb-4 opacity-20" />
-            <p>Your shelf is empty. Add some nutrients!</p>
-          </div>
-        )}
       </div>
 
-      {/* Modal */}
+      {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-fade-in border border-gray-100 dark:border-gray-800">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-xl overflow-hidden border border-gray-100 dark:border-gray-800">
             <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
               <h3 className="text-xl font-bold text-gray-800 dark:text-white">
                 {editingId ? 'Edit Nutrient' : 'Add New Nutrient'}
@@ -195,71 +237,83 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
             </div>
             
             <form onSubmit={handleAdd} className="p-6 space-y-4">
-              
-              {/* Scan Button */}
               <div className="flex justify-center mb-4">
-                 <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept="image/*"
-                  onChange={handleFileChange}
-                />
-                <button 
-                  type="button"
-                  onClick={handleScanClick}
-                  disabled={isScanning}
-                  className="w-full border-2 border-dashed border-canopy-300 dark:border-canopy-700 bg-canopy-50 dark:bg-canopy-900/20 hover:bg-canopy-100 dark:hover:bg-canopy-900/40 text-canopy-700 dark:text-canopy-400 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-                >
+                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                <button type="button" onClick={handleScanClick} disabled={isScanning} className="w-full border-2 border-dashed border-canopy-300 dark:border-canopy-700 bg-canopy-50 dark:bg-canopy-900/20 hover:bg-canopy-100 dark:hover:bg-canopy-900/40 text-canopy-700 dark:text-canopy-400 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
                   {isScanning ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
                   {isScanning ? "AI Analyzing Label..." : (editingId ? "Re-Scan Label" : "Scan Bottle Label with AI")}
                 </button>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Brand</label>
-                  <input required name="brand" value={formData.brand} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-canopy-500 outline-none dark:bg-gray-800 dark:text-white" placeholder="e.g. Canna" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Name</label>
-                  <input required name="name" value={formData.name} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-canopy-500 outline-none dark:bg-gray-800 dark:text-white" placeholder="e.g. Boost" />
-                </div>
+                <input required name="brand" value={formData.brand} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" placeholder="Brand" />
+                <input required name="name" value={formData.name} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" placeholder="Name" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">NPK</label>
-                  <input name="npk" value={formData.npk} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-canopy-500 outline-none dark:bg-gray-800 dark:text-white" placeholder="0-0-0" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Type</label>
-                  <select name="type" value={formData.type} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-canopy-500 outline-none dark:bg-gray-800 dark:text-white">
-                    {Object.values(NutrientType).map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
+                <input name="npk" value={formData.npk} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" placeholder="NPK (0-0-0)" />
+                <select name="type" value={formData.type} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white">
+                  {Object.values(NutrientType).map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Volume (Liters)</label>
-                  <input type="number" step="0.1" name="volumeLiters" value={formData.volumeLiters} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-canopy-500 outline-none dark:bg-gray-800 dark:text-white" />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-1">
+                  <label className="text-xs text-gray-500">Size (L)</label>
+                  <input type="number" step="0.1" name="volumeLiters" value={formData.volumeLiters} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Quantity (Bottles)</label>
-                  <input type="number" step="1" min="0" name="bottleCount" value={formData.bottleCount} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-canopy-500 outline-none dark:bg-gray-800 dark:text-white" />
+                <div className="col-span-1">
+                   <label className="text-xs text-gray-500">Bottles</label>
+                   <input type="number" step="1" name="bottleCount" value={formData.bottleCount} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" />
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Notes</label>
-                <textarea name="notes" value={formData.notes} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-canopy-500 outline-none h-20 resize-none dark:bg-gray-800 dark:text-white" placeholder="Optional notes..."></textarea>
+                <div className="col-span-1">
+                   <label className="text-xs text-gray-500">Cost ($)</label>
+                   <input type="number" step="0.01" name="cost" value={formData.cost} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" />
+                </div>
               </div>
 
               <button type="submit" className="w-full bg-canopy-600 hover:bg-canopy-700 text-white font-bold py-3 rounded-lg mt-4 transition-colors">
                  {editingId ? 'Update Nutrient' : 'Save to Inventory'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Log Usage Modal */}
+      {isLogModalOpen && selectedNutrient && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-sm shadow-xl p-6 border border-gray-100 dark:border-gray-800">
+             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Log Usage: {selectedNutrient.name}</h3>
+             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Record amount used. This helps track run rates.</p>
+             
+             <div className="flex gap-4 mb-6">
+               <div className="flex-1">
+                 <label className="text-xs font-semibold text-gray-500 uppercase">Amount</label>
+                 <input 
+                   type="number" 
+                   value={doseAmount} 
+                   onChange={(e) => setDoseAmount(parseFloat(e.target.value))} 
+                   className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white text-lg font-bold"
+                 />
+               </div>
+               <div className="flex-1">
+                 <label className="text-xs font-semibold text-gray-500 uppercase">Unit</label>
+                 <select 
+                   value={doseUnit} 
+                   onChange={(e) => setDoseUnit(e.target.value as any)} 
+                   className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white"
+                 >
+                   <option value="ml">Milliliters (ml)</option>
+                   <option value="bottle">Whole Bottles</option>
+                 </select>
+               </div>
+             </div>
+             
+             <div className="flex gap-2">
+               <button onClick={() => setIsLogModalOpen(false)} className="flex-1 py-2 text-gray-600 dark:text-gray-400 font-semibold">Cancel</button>
+               <button onClick={submitLog} className="flex-1 py-2 bg-canopy-600 text-white rounded-lg font-bold hover:bg-canopy-700">Record</button>
+             </div>
           </div>
         </div>
       )}

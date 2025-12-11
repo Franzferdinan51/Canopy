@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings } from './types';
-import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna } from 'lucide-react';
+import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog } from './types';
+import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { NutrientList } from './components/NutrientList';
 import { StrainList } from './components/StrainList';
@@ -9,6 +9,7 @@ import { AIAssistant } from './components/AIAssistant';
 import { Settings } from './components/Settings';
 import { NewsFeed } from './components/NewsFeed';
 import { BreedingLab } from './components/BreedingLab';
+import { Analytics } from './components/Analytics';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -26,7 +27,7 @@ const App: React.FC = () => {
       geminiApiKey: '',
       lmStudioUrl: 'http://localhost:1234/v1',
       lmStudioModel: '',
-      theme: 'dark' // Default to Dark Mode
+      theme: 'dark'
     };
   });
 
@@ -34,25 +35,18 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('canopy_nutrients');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Ensure bottleCount exists for existing data
       return parsed.map((n: any) => ({ ...n, bottleCount: n.bottleCount ?? 1 }));
     }
-
     return [
-      // FOOP Starter Pack
-      { id: '1', name: 'Veg 1', brand: 'FOOP', npk: '1-1-1', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, notes: 'Contains nitrogen and calcium for root development' },
-      { id: '2', name: 'Veg 2', brand: 'FOOP', npk: '1-2-1', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, notes: 'Essential micronutrients for vegetative growth' },
-      { id: '3', name: 'Bloom 1', brand: 'FOOP', npk: '0-3-5', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, notes: 'Phosphorus and potassium for flowering' },
-      { id: '4', name: 'Bloom 2', brand: 'FOOP', npk: '0-1-3', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, notes: 'Secondary nutrients for bud production' },
-      { id: '5', name: 'Sweetener', brand: 'FOOP', npk: '0-0-1', type: NutrientType.ADDITIVE, volumeLiters: 0.95, bottleCount: 1, notes: 'Flavor enhancer and soil conditioner' },
-      
-      // FoxFarm Soil Liquid Trio Pack
-      { id: '6', name: 'Big Bloom', brand: 'FoxFarm', npk: '0-0.5-0.7', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, notes: 'Liquid concentrate for all flowering and fruiting plants. Micro-biologically alive.' },
-      { id: '7', name: 'Grow Big', brand: 'FoxFarm', npk: '6-4-4', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, notes: 'Water soluble fertilizer for lush vegetative growth.' },
-      { id: '8', name: 'Tiger Bloom', brand: 'FoxFarm', npk: '2-8-4', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, notes: 'High phosphorus fertilizer for bud set and vigor.' },
-      
-      // General Hydroponics
-      { id: '9', name: 'CaliMagic', brand: 'General Hydroponics', npk: '1-0-0', type: NutrientType.ADDITIVE, volumeLiters: 0.95, bottleCount: 1, notes: 'Calcium and Magnesium supplement to prevent deficiencies.' },
+      { id: '1', name: 'Veg 1', brand: 'FOOP', npk: '1-1-1', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Contains nitrogen and calcium for root development' },
+      { id: '2', name: 'Veg 2', brand: 'FOOP', npk: '1-2-1', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Essential micronutrients for vegetative growth' },
+      { id: '3', name: 'Bloom 1', brand: 'FOOP', npk: '0-3-5', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Phosphorus and potassium for flowering' },
+      { id: '4', name: 'Bloom 2', brand: 'FOOP', npk: '0-1-3', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Secondary nutrients for bud production' },
+      { id: '5', name: 'Sweetener', brand: 'FOOP', npk: '0-0-1', type: NutrientType.ADDITIVE, volumeLiters: 0.95, bottleCount: 1, cost: 19.99, notes: 'Flavor enhancer and soil conditioner' },
+      { id: '6', name: 'Big Bloom', brand: 'FoxFarm', npk: '0-0.5-0.7', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 15.00 },
+      { id: '7', name: 'Grow Big', brand: 'FoxFarm', npk: '6-4-4', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 15.00 },
+      { id: '8', name: 'Tiger Bloom', brand: 'FoxFarm', npk: '2-8-4', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 15.00 },
+      { id: '9', name: 'CaliMagic', brand: 'General Hydroponics', npk: '1-0-0', type: NutrientType.ADDITIVE, volumeLiters: 0.95, bottleCount: 1, cost: 18.00 },
     ];
   });
 
@@ -60,61 +54,66 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('canopy_strains');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Ensure fields exists for existing data
       return parsed.map((s: any) => ({ 
         ...s, 
         isLandrace: s.isLandrace ?? false,
         parents: s.parents || [],
-        infoUrl: s.infoUrl || '' 
+        infoUrl: s.infoUrl || '',
+        cost: s.cost || 0,
+        rating: s.rating || 0
       }));
     }
-
-    // Initial List from User's Notebook
-    return [
+    const defaultStrains = [
       { id: '1', name: 'Purple Sun Shine F1', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '2', name: 'Purple Sunshine Bx1', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '3', name: 'PS Auto F2 x Fat Bastard', breeder: 'Custom', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
-      { id: '4', name: 'Purple ChemDawg', breeder: 'Unknown', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '2', name: 'Purple Sun Shine Bx1', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '3', name: 'PSAuto F2 + Fat Bastard', breeder: 'Custom', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
+      { id: '4', name: 'Purple ChemDawg', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
       { id: '5', name: 'Purple Sun Shine F2', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '6', name: 'Ken Estes GDP Heirloom', breeder: 'Grand Daddy Purp', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '6', name: 'Ken Estes GDP Heirloom', breeder: 'Grand Daddy Purp', type: StrainType.INDICA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
       { id: '7', name: 'Purple Sun Shine Auto F2', breeder: 'Custom', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
-      { id: '8', name: 'Black Strap Auto F2', breeder: 'Gnome Automatics', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
-      { id: '9', name: 'Banana Purple Jack', breeder: 'Unknown', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '10', name: 'Glue Gelato', breeder: 'Barneys Farm', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '11', name: 'Purple Sunshine Auto F3', breeder: 'Custom', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
-      { id: '12', name: 'Lemon Cookies x Garlic Bud', breeder: 'Unknown', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '13', name: 'White Space F2', breeder: 'Unknown', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '8', name: 'Black Strap Auto F2', breeder: 'Brother Mendel', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
+      { id: '9', name: 'Banana Purple Jack', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '10', name: 'Glue Gelato', breeder: 'Barney\'s Farm', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '11', name: 'Purple Sun Shine Auto F3', breeder: 'Custom', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
+      { id: '12', name: 'Lemon Cookies + Garlic Bud', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '13', name: 'White Space F2', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
       { id: '14', name: 'Fat Bastard', breeder: 'Blimburn', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
       { id: '15', name: 'Fat Bastard Auto', breeder: 'Blimburn', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
       { id: '16', name: 'Mimosa', breeder: 'Symbiotic Genetics', type: StrainType.SATIVA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '17', name: 'Black Berry Moonstones Auto', breeder: 'RocBudInc', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
-      { id: '18', name: 'Blunt Force Fauna', breeder: 'Unknown', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '17', name: 'Black Berry Moonstones Auto', breeder: 'Gnome Automatics', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
+      { id: '18', name: 'Blunt Force Trauma', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
       { id: '19', name: 'Trop Cherry S1', breeder: 'Relentless Genetics', type: StrainType.SATIVA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '20', name: 'Glitter Boof', breeder: 'Compound Genetics', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '21', name: 'Trich Dawg', breeder: 'Unknown', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '22', name: 'Cantaloupe Skunk', breeder: 'Unknown', type: StrainType.SATIVA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '23', name: 'XXL Cheese', breeder: 'Dinafem', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '20', name: 'GlitterBoof', breeder: 'Comphetua', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '21', name: 'Trich Dawg', breeder: 'Irie Genetics', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '22', name: 'Cantaloupe Skunk', breeder: 'Custom', type: StrainType.SATIVA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+      { id: '23', name: 'XXL Cheese', breeder: 'Dinafem', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
       { id: '24', name: 'Kazakastani', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
       { id: '25', name: 'Black Russian', breeder: 'Delicious Seeds', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: false },
       { id: '26', name: 'Taskurgan', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
       { id: '27', name: 'Xinjiang', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
     ];
+    
+    return defaultStrains.map(s => ({ 
+      ...s, 
+      cost: 0, 
+      rating: 0, 
+      parents: [], 
+      grandparents: [], 
+      infoUrl: '' 
+    }));
+  });
+
+  const [history, setHistory] = useState<UsageLog[]>(() => {
+     const saved = localStorage.getItem('canopy_history');
+     return saved ? JSON.parse(saved) : [];
   });
 
   // --- Persistence ---
-  useEffect(() => {
-    localStorage.setItem('canopy_nutrients', JSON.stringify(nutrients));
-  }, [nutrients]);
+  useEffect(() => { localStorage.setItem('canopy_nutrients', JSON.stringify(nutrients)); }, [nutrients]);
+  useEffect(() => { localStorage.setItem('canopy_strains', JSON.stringify(strains)); }, [strains]);
+  useEffect(() => { localStorage.setItem('canopy_settings', JSON.stringify(settings)); }, [settings]);
+  useEffect(() => { localStorage.setItem('canopy_history', JSON.stringify(history)); }, [history]);
 
-  useEffect(() => {
-    localStorage.setItem('canopy_strains', JSON.stringify(strains));
-  }, [strains]);
-
-  useEffect(() => {
-    localStorage.setItem('canopy_settings', JSON.stringify(settings));
-  }, [settings]);
-
-  // --- Theme Engine ---
   useEffect(() => {
     if (settings.theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -125,6 +124,16 @@ const App: React.FC = () => {
 
   const handleSaveSettings = (newSettings: UserSettings) => {
     setSettings(newSettings);
+  };
+
+  // --- Logging Helper ---
+  const addLog = (log: Omit<UsageLog, 'id' | 'date'>) => {
+    const newLog: UsageLog = {
+      ...log,
+      id: crypto.randomUUID(),
+      date: new Date().toISOString()
+    };
+    setHistory(prev => [newLog, ...prev]);
   };
 
   const NavItem = ({ view, icon: Icon, label }: { view: View; icon: any; label: string }) => (
@@ -172,13 +181,13 @@ const App: React.FC = () => {
             <NavItem view="nutrients" icon={Beaker} label="Nutrients" />
             <NavItem view="strains" icon={Sprout} label="Strain Library" />
             <NavItem view="breeding" icon={Dna} label="Breeding Lab" />
+            <NavItem view="analytics" icon={BarChart3} label="Analytics" />
             <NavItem view="assistant" icon={Bot} label="AI Assistant" />
             <NavItem view="news" icon={Newspaper} label="News" />
           </nav>
 
           <div className="mt-auto">
              <NavItem view="settings" icon={SettingsIcon} label="Settings" />
-             
              <div className="mt-4 bg-canopy-50 dark:bg-gray-800 p-4 rounded-xl border border-canopy-100 dark:border-gray-700">
               <p className="text-xs text-canopy-800 dark:text-canopy-300 font-semibold mb-1">Status</p>
               <div className="flex items-center gap-2 text-xs text-canopy-600 dark:text-canopy-400">
@@ -193,11 +202,12 @@ const App: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 h-full overflow-hidden pt-14 md:pt-0 relative dark:bg-gray-950">
         {currentView === 'dashboard' && <Dashboard nutrients={nutrients} strains={strains} onViewChange={setCurrentView} />}
-        {currentView === 'nutrients' && <NutrientList nutrients={nutrients} setNutrients={setNutrients} settings={settings} />}
-        {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} />}
+        {currentView === 'nutrients' && <NutrientList nutrients={nutrients} setNutrients={setNutrients} settings={settings} addLog={addLog} />}
+        {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} />}
         {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} settings={settings} />}
         {currentView === 'assistant' && <AIAssistant nutrients={nutrients} strains={strains} settings={settings} />}
         {currentView === 'news' && <NewsFeed settings={settings} />}
+        {currentView === 'analytics' && <Analytics history={history} nutrients={nutrients} strains={strains} settings={settings} />}
         {currentView === 'settings' && <Settings settings={settings} onSave={handleSaveSettings} />}
       </main>
     </div>
