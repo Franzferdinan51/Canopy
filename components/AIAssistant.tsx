@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Nutrient, Strain, UserSettings, Attachment, AiModelId } from '../types';
 import { askGrowAssistant, fileToGenerativePart } from '../services/geminiService';
-import { Send, Bot, User, Sparkles, Trash2, Zap, Droplet, Sprout, Activity, ThermometerSun, Mic, Paperclip, X, Image as ImageIcon, Brain, Volume2 } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Trash2, Zap, Droplet, Sprout, Activity, ThermometerSun, Mic, Paperclip, X, Brain, Volume2, Headphones, MicOff, PhoneOff, Waves } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface AIAssistantProps {
@@ -26,6 +27,215 @@ const QUICK_PROMPTS = [
   { label: "Crop Steering", icon: Zap, prompt: "How can I use crop steering techniques to bulk up my flowers using my current nutrients?" },
 ];
 
+// --- Live Voice Overlay Component ---
+const LiveSessionOverlay = ({ 
+  isOpen, 
+  onClose, 
+  onSend, 
+  lastModelMessage,
+  isProcessing 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onSend: (text: string) => void; 
+  lastModelMessage: string;
+  isProcessing: boolean;
+}) => {
+  const [state, setState] = useState<'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING'>('IDLE');
+  const [transcript, setTranscript] = useState('');
+  const recognitionRef = useRef<any>(null);
+  const synthesisRef = useRef<SpeechSynthesis>(window.speechSynthesis);
+  const silenceTimerRef = useRef<any>(null);
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if (!isOpen) {
+      stopAll();
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => setState('LISTENING');
+      
+      recognition.onresult = (event: any) => {
+        const current = event.resultIndex;
+        const text = event.results[current][0].transcript;
+        setTranscript(text);
+        
+        // Auto-submit logic: If final result
+        if (event.results[current].isFinal) {
+           handleUserFinishedSpeaking(text);
+        }
+      };
+
+      recognition.onend = () => {
+        // If simply stopped but not processing, restart (keep alive)
+        if (state === 'LISTENING' && !isProcessing) {
+           // Small delay to prevent tight loops
+           setTimeout(() => {
+             if (isOpen && state === 'LISTENING') tryStartListening(); 
+           }, 500);
+        }
+      };
+
+      recognitionRef.current = recognition;
+      // Start listening immediately on open
+      tryStartListening();
+    }
+
+    return () => stopAll();
+  }, [isOpen]);
+
+  // Handle AI Response -> TTS
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (isProcessing) {
+      setState('PROCESSING');
+      stopListening();
+      stopSpeaking();
+    } else if (lastModelMessage && state === 'PROCESSING') {
+      // AI just finished
+      setState('SPEAKING');
+      speak(lastModelMessage);
+    }
+  }, [isProcessing, lastModelMessage, isOpen]);
+
+  const tryStartListening = () => {
+    try {
+      if (recognitionRef.current) recognitionRef.current.start();
+    } catch (e) {
+      // Often throws if already started, safe to ignore
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) recognitionRef.current.stop();
+  };
+
+  const stopSpeaking = () => {
+    if (synthesisRef.current) synthesisRef.current.cancel();
+  };
+
+  const stopAll = () => {
+    stopListening();
+    stopSpeaking();
+    setState('IDLE');
+  };
+
+  const handleUserFinishedSpeaking = (text: string) => {
+    if (!text.trim()) return;
+    stopListening();
+    setState('PROCESSING');
+    onSend(text);
+    setTranscript('');
+  };
+
+  const speak = (text: string) => {
+    stopSpeaking();
+    // Clean markdown for speech
+    const cleanText = text.replace(/[*#`_]/g, '').replace(/\[.*?\]/g, ''); 
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    
+    // Select a better voice if available
+    const voices = synthesisRef.current.getVoices();
+    const preferredVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha'));
+    if (preferredVoice) utterance.voice = preferredVoice;
+
+    utterance.onend = () => {
+      setState('LISTENING');
+      tryStartListening();
+    };
+    
+    synthesisRef.current.speak(utterance);
+  };
+
+  const handleClose = () => {
+    stopAll();
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-gray-950/95 backdrop-blur-xl flex flex-col items-center justify-between p-8 animate-fade-in text-white">
+      
+      {/* Header */}
+      <div className="w-full flex justify-between items-center">
+        <div className="flex items-center gap-2 text-white/70">
+           <Brain size={18} />
+           <span className="font-bold tracking-wider text-sm">GEMINI LIVE</span>
+        </div>
+        <button onClick={handleClose} className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
+          <X size={24} />
+        </button>
+      </div>
+
+      {/* Visualizer Orb */}
+      <div className="flex-1 flex flex-col items-center justify-center relative w-full">
+         <div className="relative">
+            {/* Core */}
+            <div className={`w-32 h-32 rounded-full bg-gradient-to-tr from-canopy-400 to-blue-500 blur-md transition-all duration-500 z-10
+                ${state === 'LISTENING' ? 'scale-100 opacity-80' : ''}
+                ${state === 'PROCESSING' ? 'scale-75 opacity-90 animate-pulse' : ''}
+                ${state === 'SPEAKING' ? 'scale-110 opacity-100' : ''}
+            `}></div>
+            
+            {/* Outer Glow / Ripple */}
+            <div className={`absolute inset-0 bg-canopy-500 rounded-full blur-xl transition-all duration-1000
+                ${state === 'LISTENING' ? 'animate-ping opacity-20' : 'opacity-0'}
+            `}></div>
+            
+             <div className={`absolute inset-0 bg-blue-500 rounded-full blur-2xl transition-all duration-300
+                ${state === 'SPEAKING' ? 'scale-150 opacity-40 animate-pulse' : 'opacity-0'}
+            `}></div>
+
+            {/* Spinner for processing */}
+            {state === 'PROCESSING' && (
+               <div className="absolute inset-[-20px] border-4 border-t-white border-white/20 rounded-full animate-spin"></div>
+            )}
+         </div>
+
+         {/* Status Text */}
+         <div className="mt-12 text-center h-24">
+            <h3 className="text-2xl font-bold mb-2 transition-all">
+              {state === 'LISTENING' && (transcript || "Listening...")}
+              {state === 'PROCESSING' && "Thinking..."}
+              {state === 'SPEAKING' && "Canopy Speaking"}
+            </h3>
+            <p className="text-white/50 text-sm">{state === 'LISTENING' ? "Speak naturally" : ""}</p>
+         </div>
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-6">
+         <button 
+           onClick={() => {
+              if (state === 'LISTENING') stopListening();
+              else tryStartListening();
+           }}
+           className={`p-6 rounded-full transition-all ${state === 'LISTENING' ? 'bg-white text-gray-900' : 'bg-white/10 text-white hover:bg-white/20'}`}
+         >
+           {state === 'LISTENING' ? <Mic size={32} /> : <MicOff size={32} />}
+         </button>
+
+         <button 
+            onClick={handleClose}
+            className="p-6 rounded-full bg-red-500/80 hover:bg-red-500 text-white transition-all"
+         >
+            <PhoneOff size={32} />
+         </button>
+      </div>
+    </div>
+  );
+};
+
 export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, settings, onAgentAction, currentView }) => {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<Message[]>([
@@ -39,6 +249,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, se
   const [isListening, setIsListening] = useState(false);
   const [selectedModel, setSelectedModel] = useState<AiModelId>(settings.preferredModel || 'gemini-2.5-flash');
   
+  // Live Mode State
+  const [isLiveMode, setIsLiveMode] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,11 +264,10 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, se
     scrollToBottom();
   }, [messages]);
 
-  // --- Voice Input Logic ---
+  // --- Voice Input Logic (Standard) ---
   const toggleListening = () => {
     if (isListening) {
       setIsListening(false);
-      // Logic handled by onend event of recognition
       return;
     }
 
@@ -109,7 +321,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, se
   };
 
   // --- Submission ---
-  const handleSubmit = async (e?: React.FormEvent, manualQuery?: string) => {
+  const handleSubmit = async (e?: React.FormEvent, manualQuery?: string, onComplete?: () => void) => {
     if (e) e.preventDefault();
     const textToSend = manualQuery || query;
     if ((!textToSend.trim() && attachments.length === 0) || isLoading) return;
@@ -140,12 +352,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, se
              return updated;
           });
         },
-        onAgentAction // Pass navigation handler
+        onAgentAction
       );
-      
-      // Auto-speak if it was a voice interaction (simple heuristic: if we just used mic, likely want voice back)
-      // For now, manual trigger only to be safe.
-
     } catch (error) {
       setMessages(prev => {
          const updated = [...prev];
@@ -155,6 +363,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, se
     } finally {
       setIsLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
+      if (onComplete) onComplete();
     }
   };
 
@@ -167,9 +376,22 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, se
     }
   };
 
+  const lastModelMessage = messages.length > 0 && messages[messages.length - 1].role === 'model' 
+    ? messages[messages.length - 1].text 
+    : '';
+
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900 relative transition-colors">
       
+      {/* Live Voice Overlay */}
+      <LiveSessionOverlay 
+        isOpen={isLiveMode} 
+        onClose={() => setIsLiveMode(false)}
+        onSend={(text) => handleSubmit(undefined, text)}
+        lastModelMessage={lastModelMessage}
+        isProcessing={isLoading}
+      />
+
       {/* Header */}
       <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-10 shadow-sm flex flex-col gap-2 sticky top-0">
         <div className="flex items-center justify-between">
@@ -178,6 +400,17 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ nutrients, strains, se
             <h2 className="text-xl font-bold text-gray-800 dark:text-white">Grow Assistant</h2>
             </div>
             <div className="flex items-center gap-2">
+            
+            {/* Live Mode Trigger */}
+            <button
+               onClick={() => setIsLiveMode(true)}
+               className="p-2 bg-gradient-to-r from-canopy-500 to-blue-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all animate-pulse-slow flex items-center gap-2"
+               title="Enter Live Voice Mode"
+            >
+               <Headphones size={18} />
+               <span className="text-xs font-bold hidden md:inline">Live Mode</span>
+            </button>
+
             <button 
                 onClick={handleClearChat}
                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
