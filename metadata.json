@@ -1,0 +1,7 @@
+{
+  "name": "Canopy - AI Grow Manager",
+  "description": "A comprehensive home grower inventory management tool featuring AI-powered label scanning, nutrient tracking, and a smart strain library.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
