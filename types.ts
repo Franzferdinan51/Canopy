@@ -99,4 +99,12 @@ export interface GeneticAnalysis {
   recommendations: BreedingRecommendation[];
 }
 
-export type View = 'dashboard' | 'nutrients' | 'strains' | 'assistant' | 'settings' | 'news' | 'breeding' | 'analytics';
+export interface ProductAlternative {
+  name: string;
+  brand: string;
+  approxPrice: number;
+  reason: string;
+  searchQuery: string;
+}
+
+export type View = 'dashboard' | 'nutrients' | 'strains' | 'assistant' | 'settings' | 'news' | 'breeding' | 'analytics' | 'order';

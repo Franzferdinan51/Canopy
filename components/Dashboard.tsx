@@ -1,13 +1,16 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { Nutrient, Strain, StrainType, NutrientType, View } from '../types';
-import { Leaf, Droplets, Sprout, Wind, AlertTriangle, TrendingDown, PlusCircle, ArrowRight } from 'lucide-react';
+import { Nutrient, Strain, StrainType, NutrientType, View, UserSettings } from '../types';
+import { Leaf, Droplets, Sprout, Wind, TrendingDown, PlusCircle, ArrowRight, Bot, Sparkles } from 'lucide-react';
+import { generateDashboardBriefing } from '../services/geminiService';
+import ReactMarkdown from 'react-markdown';
 
 interface DashboardProps {
   nutrients: Nutrient[];
   strains: Strain[];
   onViewChange?: (view: View) => void;
+  settings: UserSettings;
 }
 
 // Fixed Color Mapping for Consistency
@@ -18,7 +21,26 @@ const STRAIN_COLORS = {
   [StrainType.RUDERALIS]: '#f59e0b', // Amber/Yellow
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ nutrients, strains, onViewChange }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ nutrients, strains, onViewChange, settings }) => {
+  const [briefing, setBriefing] = useState<string>('');
+  const [loadingBriefing, setLoadingBriefing] = useState(true);
+
+  // Load AI Briefing on Mount
+  useEffect(() => {
+    let mounted = true;
+    const fetchBriefing = async () => {
+      try {
+        const text = await generateDashboardBriefing(nutrients, strains, settings);
+        if (mounted) setBriefing(text);
+      } catch (e) {
+        if (mounted) setBriefing("Welcome back. Check your inventory levels.");
+      } finally {
+        if (mounted) setLoadingBriefing(false);
+      }
+    };
+    fetchBriefing();
+    return () => { mounted = false; };
+  }, [nutrients, strains, settings]);
   
   // Data for Strain Type Distribution
   const strainTypeData = React.useMemo(() => {
@@ -79,6 +101,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ nutrients, strains, onView
            <button onClick={() => onViewChange?.('strains')} className="bg-canopy-600 hover:bg-canopy-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition-colors">
               <PlusCircle size={16} /> Add Strain
            </button>
+        </div>
+      </div>
+
+      {/* AI Daily Briefing Card */}
+      <div className="mb-8 bg-gradient-to-r from-gray-900 to-gray-800 dark:from-gray-800 dark:to-gray-900 rounded-xl p-6 text-white shadow-lg relative overflow-hidden animate-fade-in border border-gray-700">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+        <div className="relative z-10 flex items-start gap-4">
+           <div className="p-3 bg-white/10 rounded-full text-green-400 animate-pulse">
+             <Bot size={24} />
+           </div>
+           <div className="flex-1">
+             <h3 className="text-sm font-bold text-green-400 uppercase tracking-wider mb-1 flex items-center gap-2">
+               Daily Briefing <Sparkles size={12} />
+             </h3>
+             {loadingBriefing ? (
+               <div className="h-6 w-3/4 bg-white/10 rounded animate-pulse"></div>
+             ) : (
+               <div className="prose prose-invert prose-sm max-w-none text-gray-200">
+                 <ReactMarkdown>{briefing}</ReactMarkdown>
+               </div>
+             )}
+           </div>
         </div>
       </div>
 

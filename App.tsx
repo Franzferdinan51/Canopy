@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog } from './types';
-import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3, ShoppingCart } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { NutrientList } from './components/NutrientList';
 import { StrainList } from './components/StrainList';
@@ -9,10 +10,16 @@ import { Settings } from './components/Settings';
 import { NewsFeed } from './components/NewsFeed';
 import { BreedingLab } from './components/BreedingLab';
 import { Analytics } from './components/Analytics';
+import { OrderPage } from './components/OrderPage';
+import { GlobalAssistant } from './components/GlobalAssistant';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Global Assistant State
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [assistantPrompt, setAssistantPrompt] = useState<string>('');
 
   // --- Initial State Loaders ---
 
@@ -154,6 +161,12 @@ const App: React.FC = () => {
     setHistory(prev => [newLog, ...prev]);
   };
 
+  // --- AI Trigger Helper ---
+  const triggerGlobalAI = (prompt: string) => {
+    setAssistantPrompt(prompt);
+    setIsAssistantOpen(true);
+  };
+
   const NavItem = ({ view, icon: Icon, label }: { view: View; icon: any; label: string }) => (
     <button
       onClick={() => {
@@ -199,6 +212,7 @@ const App: React.FC = () => {
             <NavItem view="nutrients" icon={Beaker} label="Nutrients" />
             <NavItem view="strains" icon={Sprout} label="Strain Library" />
             <NavItem view="breeding" icon={Dna} label="Breeding Lab" />
+            <NavItem view="order" icon={ShoppingCart} label="Supply Chain" />
             <NavItem view="analytics" icon={BarChart3} label="Analytics" />
             <NavItem view="assistant" icon={Bot} label="AI Assistant" />
             <NavItem view="news" icon={Newspaper} label="News" />
@@ -219,14 +233,39 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 h-full overflow-hidden pt-14 md:pt-0 relative dark:bg-gray-950">
-        {currentView === 'dashboard' && <Dashboard nutrients={nutrients} strains={strains} onViewChange={setCurrentView} />}
-        {currentView === 'nutrients' && <NutrientList nutrients={nutrients} setNutrients={setNutrients} settings={settings} addLog={addLog} />}
-        {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} />}
+        {currentView === 'dashboard' && <Dashboard nutrients={nutrients} strains={strains} onViewChange={setCurrentView} settings={settings} />}
+        {currentView === 'nutrients' && <NutrientList nutrients={nutrients} setNutrients={setNutrients} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
+        {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
         {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} settings={settings} />}
+        {currentView === 'order' && <OrderPage nutrients={nutrients} setNutrients={setNutrients} strains={strains} setStrains={setStrains} settings={settings} />}
         {currentView === 'assistant' && <AIAssistant nutrients={nutrients} strains={strains} settings={settings} />}
         {currentView === 'news' && <NewsFeed settings={settings} />}
         {currentView === 'analytics' && <Analytics history={history} nutrients={nutrients} strains={strains} settings={settings} />}
         {currentView === 'settings' && <Settings settings={settings} onSave={handleSaveSettings} />}
+        
+        {/* Floating Global Assistant */}
+        <GlobalAssistant 
+          nutrients={nutrients} 
+          strains={strains} 
+          settings={settings} 
+          isOpen={isAssistantOpen} 
+          setIsOpen={setIsAssistantOpen} 
+          currentView={currentView}
+          initialPrompt={assistantPrompt}
+          onClearInitialPrompt={() => setAssistantPrompt('')}
+        />
+        
+        {/* Assistant Trigger FAB (Only show if not open) */}
+        {!isAssistantOpen && (
+          <button 
+            onClick={() => setIsAssistantOpen(true)}
+            className="fixed bottom-6 right-6 bg-canopy-600 hover:bg-canopy-700 text-white p-4 rounded-full shadow-lg z-50 transition-transform hover:scale-105"
+            title="Open Canopy Assistant"
+          >
+            <Bot size={24} />
+          </button>
+        )}
+
       </main>
     </div>
   );

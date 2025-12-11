@@ -1,6 +1,7 @@
+
 import React, { useState, useRef } from 'react';
 import { Nutrient, NutrientType, UserSettings, UsageLog } from '../types';
-import { Plus, Trash2, Camera, Droplet, Loader2, Pencil, Package, History, DollarSign } from 'lucide-react';
+import { Plus, Trash2, Camera, Droplet, Loader2, Pencil, Package, History, DollarSign, Bot } from 'lucide-react';
 import { fileToGenerativePart, scanInventoryItem } from '../services/geminiService';
 
 interface NutrientListProps {
@@ -8,9 +9,10 @@ interface NutrientListProps {
   setNutrients: React.Dispatch<React.SetStateAction<Nutrient[]>>;
   settings: UserSettings;
   addLog: (log: Omit<UsageLog, 'id' | 'date'>) => void;
+  onTriggerAI: (prompt: string) => void;
 }
 
-export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrients, settings, addLog }) => {
+export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrients, settings, addLog, onTriggerAI }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -168,13 +170,23 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
   return (
     <div className="p-6 h-full overflow-y-auto bg-gray-50 dark:bg-gray-950 transition-colors">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Nutrient Inventory</h2>
-        <button 
-          onClick={openNewModal}
-          className="bg-canopy-600 hover:bg-canopy-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
-        >
-          <Plus size={18} /> Add Nutrient
-        </button>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Nutrient Inventory</h2>
+        </div>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => onTriggerAI("Analyze my nutrient regimen. Do I have all the essentials for a complete grow cycle (Base, Veg, Bloom, CalMag, PK)? What am I missing?")}
+            className="bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors text-sm font-semibold"
+          >
+            <Bot size={18} /> Analyze Regimen
+          </button>
+          <button 
+            onClick={openNewModal}
+            className="bg-canopy-600 hover:bg-canopy-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
+          >
+            <Plus size={18} /> Add Nutrient
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">

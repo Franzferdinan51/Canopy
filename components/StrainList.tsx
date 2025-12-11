@@ -1,19 +1,22 @@
+
 import React, { useState, useRef } from 'react';
 import { Strain, StrainType, UserSettings, LineageNode, UsageLog } from '../types';
-import { Plus, Trash2, Camera, Flower, Clock, Pencil, Loader2, StickyNote, Link as LinkIcon, GitMerge, ExternalLink, History, Sprout, Star } from 'lucide-react';
-import { fileToGenerativePart, scanInventoryItem } from '../services/geminiService';
+import { Plus, Trash2, Camera, Flower, Clock, Pencil, Loader2, StickyNote, Link as LinkIcon, GitMerge, ExternalLink, History, Sprout, Star, Sparkles, Bot } from 'lucide-react';
+import { fileToGenerativePart, scanInventoryItem, fetchStrainDataFromUrl } from '../services/geminiService';
 
 interface StrainListProps {
   strains: Strain[];
   setStrains: React.Dispatch<React.SetStateAction<Strain[]>>;
   settings: UserSettings;
   addLog: (log: Omit<UsageLog, 'id' | 'date'>) => void;
+  onTriggerAI: (prompt: string) => void;
 }
 
-export const StrainList: React.FC<StrainListProps> = ({ strains, setStrains, settings, addLog }) => {
+export const StrainList: React.FC<StrainListProps> = ({ strains, setStrains, settings, addLog, onTriggerAI }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isFetchingUrl, setIsFetchingUrl] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedStrain, setSelectedStrain] = useState<Strain | null>(null);
   const [popCount, setPopCount] = useState(1);
@@ -180,15 +183,61 @@ export const StrainList: React.FC<StrainListProps> = ({ strains, setStrains, set
     }
   };
 
+  const handleUrlFetch = async () => {
+    if (!formData.infoUrl) {
+      alert("Please enter a URL first.");
+      return;
+    }
+    setIsFetchingUrl(true);
+    try {
+      const data = await fetchStrainDataFromUrl(formData.infoUrl, settings);
+      
+      setFormData(prev => ({
+        ...prev,
+        name: data.name || prev.name,
+        breeder: data.breeder || prev.breeder,
+        type: data.type || prev.type,
+        // Only update if we got a real number, otherwise keep current value
+        floweringTimeWeeks: (data.floweringTimeWeeks !== null && data.floweringTimeWeeks !== undefined) ? Number(data.floweringTimeWeeks) : prev.floweringTimeWeeks,
+        isAuto: data.isAuto ?? prev.isAuto,
+        notes: data.notes || prev.notes
+      }));
+
+      // Update Lineage inputs if parents found
+      if (data.parents && data.parents.length > 0) {
+        setLineageInput(prev => ({
+          ...prev,
+          parent1Name: data.parents?.[0]?.name || prev.parent1Name,
+          parent1Type: data.parents?.[0]?.type || prev.parent1Type,
+          parent2Name: data.parents?.[1]?.name || prev.parent2Name,
+          parent2Type: data.parents?.[1]?.type || prev.parent2Type
+        }));
+      }
+
+    } catch (error) {
+      alert("Failed to fetch data from URL. Try entering manually.");
+    } finally {
+      setIsFetchingUrl(false);
+    }
+  };
+
   return (
     <div className="p-6 h-full overflow-y-auto bg-gray-50 dark:bg-gray-950 transition-colors">
       <div className="flex justify-between items-center mb-6">
         <div>
            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Strain Library</h2>
         </div>
-        <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="bg-canopy-600 hover:bg-canopy-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors">
-          <Plus size={18} /> Add Strain
-        </button>
+        <div className="flex gap-2">
+           <button 
+             onClick={() => onTriggerAI("Suggest a lineup for my next grow based on my seed inventory. I want a mix of flavors but roughly same flowering time.")}
+             className="bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors text-sm font-semibold"
+           >
+             <Bot size={18} /> Suggest Next Run
+           </button>
+           <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="bg-canopy-600 hover:bg-canopy-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors">
+             <Plus size={18} /> Add Strain
+           </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
@@ -227,6 +276,13 @@ export const StrainList: React.FC<StrainListProps> = ({ strains, setStrains, set
                   <span>Seeds: <span className="font-semibold">{strain.inventoryCount}</span></span>
                 </div>
               </div>
+              {/* Notes Preview */}
+               {strain.notes && (
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400 italic line-clamp-2">
+                  <StickyNote size={12} className="inline mr-1" />
+                  {strain.notes}
+                </div>
+              )}
             </div>
 
             <button onClick={() => openLogModal(strain)} className="mt-4 w-full py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-canopy-50 dark:hover:bg-canopy-900/20 hover:text-canopy-600 dark:hover:text-canopy-400 transition-colors flex items-center justify-center gap-2">
@@ -252,6 +308,33 @@ export const StrainList: React.FC<StrainListProps> = ({ strains, setStrains, set
                   {isScanning ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
                   {isScanning ? "AI Reading Pack..." : (editingId ? "Re-Scan Seed Pack" : "Scan Seed Pack")}
                 </button>
+              </div>
+
+              {/* URL Auto-Fill Section */}
+              <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Source / Info URL</label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <LinkIcon size={16} className="absolute left-3 top-2.5 text-gray-400" />
+                      <input 
+                        name="infoUrl" 
+                        value={formData.infoUrl} 
+                        onChange={handleInputChange} 
+                        placeholder="https://seedbank.com/strain..."
+                        className="w-full pl-9 p-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-800 dark:text-white" 
+                      />
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={handleUrlFetch} 
+                      disabled={isFetchingUrl || !formData.infoUrl}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 rounded-lg flex items-center gap-2 text-xs font-bold transition-colors disabled:opacity-50"
+                      title="Auto-fill form from URL"
+                    >
+                      {isFetchingUrl ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                      Auto-Fill
+                    </button>
+                  </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -302,6 +385,18 @@ export const StrainList: React.FC<StrainListProps> = ({ strains, setStrains, set
                     <input type="checkbox" name="isLandrace" checked={formData.isLandrace} onChange={handleInputChange} className="w-4 h-4 text-canopy-600 rounded" />
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Landrace</span>
                   </label>
+              </div>
+
+              <div className="space-y-1">
+                 <label className="text-xs text-gray-500">Notes / Description</label>
+                 <textarea 
+                   name="notes" 
+                   value={formData.notes} 
+                   onChange={handleInputChange} 
+                   rows={3}
+                   className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-800 dark:text-white text-sm"
+                   placeholder="Genetics, terpenes, growth patterns..."
+                 />
               </div>
 
               <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
