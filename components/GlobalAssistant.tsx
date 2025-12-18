@@ -26,7 +26,7 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
   const [isMinimized, setIsMinimized] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isListening, setIsListening] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<AiModelId>(settings.preferredModel || 'gemini-2.5-flash');
+  const [selectedModel, setSelectedModel] = useState<AiModelId>(settings.preferredModel || 'gemini-3-flash-preview');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -121,10 +121,10 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
                onChange={(e) => setSelectedModel(e.target.value as AiModelId)}
                className="text-[10px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-1 py-1 text-gray-700 dark:text-gray-300 outline-none"
              >
-                <option value="gemini-2.5-flash">⚡ Flash</option>
-                <option value="gemini-2.0-flash-thinking-exp-01-21">🧠 Thinking</option>
+                <option value="gemini-3-flash-preview">⚡ Flash</option>
+                <option value="gemini-3-pro-preview">🧠 Pro</option>
              </select>
-             {selectedModel.includes('thinking') && <Brain size={12} className="text-purple-500" />}
+             {selectedModel.includes('pro') && <Brain size={12} className="text-purple-500" />}
           </div>
       )}
 

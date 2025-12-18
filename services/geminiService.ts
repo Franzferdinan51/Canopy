@@ -32,10 +32,10 @@ export const scanInventoryItem = async (
   settings: UserSettings
 ): Promise<Partial<Nutrient | Strain>> => {
   const ai = getAiClient(settings.geminiApiKey);
-  const modelId = "gemini-2.5-flash";
+  const modelId = "gemini-3-flash-preview";
 
   let prompt = "";
-  let responseSchema = {};
+  let responseSchema: any = {};
 
   if (mode === 'nutrient') {
     prompt = "Analyze this image of a cannabis nutrient bottle. Extract the Name, Brand, NPK ratio (if visible, format N-P-K), and likely Type. If NPK is not visible, use '0-0-0'.";
@@ -126,7 +126,7 @@ export const fetchStrainDataFromUrl = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: { 
         tools: [{ googleSearch: {} }] 
@@ -187,7 +187,7 @@ export const findProductAlternatives = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: { 
         responseMimeType: "application/json",
@@ -211,7 +211,7 @@ export const askGrowAssistant = async (
   inventoryContext: { nutrients: Nutrient[], strains: Strain[], breedingProjects: BreedingProject[], currentView: string },
   settings: UserSettings,
   attachments: Attachment[] = [],
-  modelId: AiModelId = 'gemini-2.5-flash',
+  modelId: AiModelId = 'gemini-3-flash-preview',
   onStreamUpdate?: (fullText: string, isThinking?: boolean) => void,
   onAgentAction?: (action: any) => void
 ): Promise<string> => {
@@ -226,7 +226,7 @@ export const askGrowAssistant = async (
   
   const currentDate = new Date().toLocaleDateString();
 
-  const isThinkingModel = modelId.includes('thinking');
+  const isThinkingModel = modelId.includes('pro');
 
   const systemInstruction = `You are Canopy, a fully Context-Aware, Agentic Master Grower AI.
   Managed by: ${settings.userName} (${settings.experienceLevel} grower).
@@ -306,12 +306,15 @@ export const askGrowAssistant = async (
     const ai = getAiClient(settings.geminiApiKey);
     const chat = ai.chats.create({
       model: modelId,
-      config: { systemInstruction: systemInstruction },
+      config: { 
+        systemInstruction: systemInstruction,
+        thinkingConfig: isThinkingModel ? { thinkingBudget: 16000 } : undefined 
+      },
       history: pastHistory
     });
 
     const streamResponse = await chat.sendMessageStream({ 
-      message: userContentParts 
+      message: { parts: userContentParts }
     });
 
     let fullText = '';
@@ -405,7 +408,7 @@ export const analyzeGenetics = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: { responseMimeType: "application/json" }
     });
@@ -441,7 +444,7 @@ export const analyzeGrowData = async (
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-flash-preview",
     contents: prompt
   });
 
@@ -476,7 +479,7 @@ export const generateDashboardBriefing = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt
     });
     return response.text || "Welcome back, Grower.";
@@ -498,7 +501,7 @@ export const fetchCannabisNews = async (settings: UserSettings, category: string
     Output strictly valid JSON.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: { tools: [{ googleSearch: {} }] }
     });

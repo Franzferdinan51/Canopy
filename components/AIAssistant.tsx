@@ -256,7 +256,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
   const [query, setQuery] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isListening, setIsListening] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<AiModelId>(settings.preferredModel || 'gemini-2.5-flash');
+  const [selectedModel, setSelectedModel] = useState<AiModelId>(settings.preferredModel || 'gemini-3-flash-preview');
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -424,14 +424,13 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
                  onChange={(e) => setSelectedModel(e.target.value as AiModelId)}
                  className="text-xs bg-gray-100 dark:bg-gray-800 border-none rounded-lg px-2 py-1.5 text-gray-700 dark:text-gray-300 outline-none cursor-pointer"
                >
-                  <option value="gemini-2.5-flash">⚡ Flash 2.5 (Fast)</option>
-                  <option value="gemini-2.0-flash-thinking-exp-01-21">🧠 Thinking 2.0 (Deep Reason)</option>
-                  <option value="gemini-1.5-pro">💎 Pro 1.5 (Complex)</option>
+                  <option value="gemini-3-flash-preview">⚡ Gemini 3 Flash (Fast)</option>
+                  <option value="gemini-3-pro-preview">🧠 Gemini 3 Pro (Reasoning)</option>
                </select>
 
-               <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-bold ${selectedModel.includes('thinking') ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-50 text-gray-400 dark:bg-gray-800/50'}`}>
+               <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-bold ${selectedModel.includes('pro') ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-50 text-gray-400 dark:bg-gray-800/50'}`}>
                   <Brain size={14} />
-                  <span>Thinking {selectedModel.includes('thinking') ? 'ON' : 'OFF'}</span>
+                  <span>Thinking {selectedModel.includes('pro') ? 'ON' : 'OFF'}</span>
                </div>
                
                <div className="text-xs text-canopy-600 dark:text-canopy-400 font-medium flex items-center gap-1 bg-canopy-50 dark:bg-canopy-900/20 px-2 py-1.5 rounded-lg">

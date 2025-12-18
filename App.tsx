@@ -14,6 +14,50 @@ import { OrderPage } from './components/OrderPage';
 import { GlobalAssistant } from './components/GlobalAssistant';
 import { askGrowAssistant } from './services/geminiService';
 
+// --- DEFAULT DATA CONSTANTS ---
+const DEFAULT_NUTRIENTS: Nutrient[] = [
+  { id: '1', name: 'Veg 1', brand: 'FOOP', npk: '1-1-1', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Contains nitrogen and calcium for root development' },
+  { id: '2', name: 'Veg 2', brand: 'FOOP', npk: '1-2-1', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Essential micronutrients for vegetative growth' },
+  { id: '3', name: 'Bloom 1', brand: 'FOOP', npk: '0-3-5', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Phosphorus and potassium for flowering' },
+  { id: '4', name: 'Bloom 2', brand: 'FOOP', npk: '0-1-3', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Secondary nutrients for bud production' },
+  { id: '5', name: 'Sweetener', brand: 'FOOP', npk: '0-0-1', type: NutrientType.ADDITIVE, volumeLiters: 0.95, bottleCount: 1, cost: 19.99, notes: 'Flavor enhancer and soil conditioner' },
+  { id: '6', name: 'Big Bloom', brand: 'FoxFarm', npk: '0-0.5-0.7', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 15.00 },
+  { id: '7', name: 'Grow Big', brand: 'FoxFarm', npk: '6-4-4', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 15.00 },
+  { id: '8', name: 'Tiger Bloom', brand: 'FoxFarm', npk: '2-8-4', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 15.00 },
+  { id: '9', name: 'CaliMagic', brand: 'General Hydroponics', npk: '1-0-0', type: NutrientType.ADDITIVE, volumeLiters: 0.95, bottleCount: 1, cost: 18.00 },
+];
+
+const DEFAULT_STRAINS: Strain[] = [
+  { id: '1', name: 'Purple Sun Shine F1', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '2', name: 'Purple Sun Shine Bx1', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '3', name: 'PSAuto F2 + Fat Bastard', breeder: 'Custom', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
+  { id: '4', name: 'Purple ChemDawg', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '5', name: 'Purple Sun Shine F2', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '6', name: 'Ken Estes GDP Heirloom', breeder: 'Grand Daddy Purp', type: StrainType.INDICA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '7', name: 'Purple Sun Shine Auto F2', breeder: 'Custom', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
+  { id: '8', name: 'Black Strap Auto F2', breeder: 'Brother Mendel', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
+  { id: '9', name: 'Banana Purple Jack', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '10', name: 'Glue Gelato', breeder: 'Barney\'s Farm', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '11', name: 'Purple Sun Shine Auto F3', breeder: 'Custom', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
+  { id: '12', name: 'Lemon Cookies + Garlic Bud', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '13', name: 'White Space F2', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '14', name: 'Fat Bastard', breeder: 'Blimburn', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '15', name: 'Fat Bastard Auto', breeder: 'Blimburn', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
+  { id: '16', name: 'Mimosa', breeder: 'Symbiotic Genetics', type: StrainType.SATIVA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '17', name: 'Black Berry Moonstones Auto', breeder: 'Gnome Automatics', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
+  { id: '18', name: 'Blunt Force Trauma', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '19', name: 'Trop Cherry S1', breeder: 'Relentless Genetics', type: StrainType.SATIVA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '20', name: 'GlitterBoof', breeder: 'Comphetua', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '21', name: 'Trich Dawg', breeder: 'Irie Genetics', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '22', name: 'Cantaloupe Skunk', breeder: 'Custom', type: StrainType.SATIVA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '23', name: 'XXL Cheese', breeder: 'Dinafem', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '24', name: 'Kazakastani', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
+  { id: '25', name: 'Black Russian', breeder: 'Delicious Seeds', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: false },
+  { id: '26', name: 'Taskurgan', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
+  { id: '27', name: 'Xinjiang', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
+].map(s => ({ ...s, cost: 0, rating: 0, parents: [], grandparents: [], infoUrl: '' }));
+
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -43,7 +87,7 @@ const App: React.FC = () => {
       lmStudioUrl: 'http://localhost:1234/v1',
       lmStudioModel: '',
       theme: 'dark',
-      preferredModel: 'gemini-2.5-flash'
+      preferredModel: 'gemini-3-flash-preview'
     };
   });
 
@@ -52,7 +96,7 @@ const App: React.FC = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed.map((n: any) => ({ 
             ...n, 
             bottleCount: Number(n.bottleCount ?? 1),
@@ -64,17 +108,7 @@ const App: React.FC = () => {
         console.error("Error parsing nutrients", e);
       }
     }
-    return [
-      { id: '1', name: 'Veg 1', brand: 'FOOP', npk: '1-1-1', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Contains nitrogen and calcium for root development' },
-      { id: '2', name: 'Veg 2', brand: 'FOOP', npk: '1-2-1', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Essential micronutrients for vegetative growth' },
-      { id: '3', name: 'Bloom 1', brand: 'FOOP', npk: '0-3-5', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Phosphorus and potassium for flowering' },
-      { id: '4', name: 'Bloom 2', brand: 'FOOP', npk: '0-1-3', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 24.99, notes: 'Secondary nutrients for bud production' },
-      { id: '5', name: 'Sweetener', brand: 'FOOP', npk: '0-0-1', type: NutrientType.ADDITIVE, volumeLiters: 0.95, bottleCount: 1, cost: 19.99, notes: 'Flavor enhancer and soil conditioner' },
-      { id: '6', name: 'Big Bloom', brand: 'FoxFarm', npk: '0-0.5-0.7', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 15.00 },
-      { id: '7', name: 'Grow Big', brand: 'FoxFarm', npk: '6-4-4', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 15.00 },
-      { id: '8', name: 'Tiger Bloom', brand: 'FoxFarm', npk: '2-8-4', type: NutrientType.BASE, volumeLiters: 0.95, bottleCount: 1, cost: 15.00 },
-      { id: '9', name: 'CaliMagic', brand: 'General Hydroponics', npk: '1-0-0', type: NutrientType.ADDITIVE, volumeLiters: 0.95, bottleCount: 1, cost: 18.00 },
-    ];
+    return DEFAULT_NUTRIENTS;
   });
 
   const [strains, setStrains] = useState<Strain[]>(() => {
@@ -82,7 +116,7 @@ const App: React.FC = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed.map((s: any) => ({ 
             ...s, 
             inventoryCount: Number(s.inventoryCount),
@@ -98,43 +132,7 @@ const App: React.FC = () => {
         console.error("Error parsing strains", e);
       }
     }
-    const defaultStrains = [
-      { id: '1', name: 'Purple Sun Shine F1', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '2', name: 'Purple Sun Shine Bx1', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '3', name: 'PSAuto F2 + Fat Bastard', breeder: 'Custom', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
-      { id: '4', name: 'Purple ChemDawg', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '5', name: 'Purple Sun Shine F2', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '6', name: 'Ken Estes GDP Heirloom', breeder: 'Grand Daddy Purp', type: StrainType.INDICA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '7', name: 'Purple Sun Shine Auto F2', breeder: 'Custom', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
-      { id: '8', name: 'Black Strap Auto F2', breeder: 'Brother Mendel', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
-      { id: '9', name: 'Banana Purple Jack', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '10', name: 'Glue Gelato', breeder: 'Barney\'s Farm', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '11', name: 'Purple Sun Shine Auto F3', breeder: 'Custom', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
-      { id: '12', name: 'Lemon Cookies + Garlic Bud', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '13', name: 'White Space F2', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '14', name: 'Fat Bastard', breeder: 'Blimburn', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '15', name: 'Fat Bastard Auto', breeder: 'Blimburn', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
-      { id: '16', name: 'Mimosa', breeder: 'Symbiotic Genetics', type: StrainType.SATIVA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '17', name: 'Black Berry Moonstones Auto', breeder: 'Gnome Automatics', type: StrainType.RUDERALIS, floweringTimeWeeks: 10, inventoryCount: 10, isAuto: true, isLandrace: false },
-      { id: '18', name: 'Blunt Force Trauma', breeder: 'Custom', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '19', name: 'Trop Cherry S1', breeder: 'Relentless Genetics', type: StrainType.SATIVA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '20', name: 'GlitterBoof', breeder: 'Comphetua', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '21', name: 'Trich Dawg', breeder: 'Irie Genetics', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '22', name: 'Cantaloupe Skunk', breeder: 'Custom', type: StrainType.SATIVA, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '23', name: 'XXL Cheese', breeder: 'Dinafem', type: StrainType.HYBRID, floweringTimeWeeks: 9, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '24', name: 'Kazakastani', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
-      { id: '25', name: 'Black Russian', breeder: 'Delicious Seeds', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: false },
-      { id: '26', name: 'Taskurgan', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
-      { id: '27', name: 'Xinjiang', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
-    ];
-    return defaultStrains.map(s => ({ 
-      ...s, 
-      cost: 0, 
-      rating: 0, 
-      parents: [], 
-      grandparents: [], 
-      infoUrl: '' 
-    }));
+    return DEFAULT_STRAINS;
   });
 
   const [history, setHistory] = useState<UsageLog[]>(() => {
@@ -279,10 +277,6 @@ const App: React.FC = () => {
     
     if (!activeSessionId) {
        activeSessionId = createNewSession(text);
-       // We don't need to manually setChatHistory here because createNewSession clears it, 
-       // but we want to KEEP the welcome message if it was the only thing there? 
-       // Actually, standard behavior is a fresh start implies previous context is gone.
-       // But if we just loaded the app and typed, we want to start a session.
     }
 
     // 1. Update UI with User Message
@@ -291,7 +285,7 @@ const App: React.FC = () => {
     setIsChatLoading(true);
 
     // 2. Add placeholder for AI response
-    setChatHistory(prev => [...prev, { role: 'model', text: '', isThinking: modelId.includes('thinking') }]);
+    setChatHistory(prev => [...prev, { role: 'model', text: '', isThinking: modelId.includes('pro') }]);
 
     try {
       await askGrowAssistant(
@@ -322,7 +316,7 @@ const App: React.FC = () => {
 
   // --- AI Trigger from Child Components ---
   const triggerGlobalAI = (prompt: string) => {
-    handleUnifiedSendMessage(prompt, [], settings.preferredModel || 'gemini-2.5-flash');
+    handleUnifiedSendMessage(prompt, [], settings.preferredModel || 'gemini-3-flash-preview');
     if (currentView !== 'assistant') {
         setIsAssistantOpen(true);
     }

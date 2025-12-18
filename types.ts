@@ -60,7 +60,7 @@ export interface UsageLog {
   note?: string;
 }
 
-export type AiModelId = 'gemini-2.5-flash' | 'gemini-2.0-flash-thinking-exp-01-21' | 'gemini-1.5-pro';
+export type AiModelId = 'gemini-3-flash-preview' | 'gemini-3-pro-preview';
 
 export interface UserSettings {
   userName: string;
