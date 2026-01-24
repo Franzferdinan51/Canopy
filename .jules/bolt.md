@@ -1,0 +1,3 @@
+## 2024-05-23 - Render Optimization in Chat History
+**Learning:** Rendering a long list of chat messages where each message renders a complex Markdown component (`ReactMarkdown`) can lead to performance issues, especially when the parent component re-renders frequently (e.g. during typing or streaming).
+**Action:** Extracted the message rendering into a memoized `ChatMessageBubble` component. This ensures that existing messages do not re-render when new messages are added or when the input state changes, significantly reducing the rendering workload. Moved the `speakText` function outside the component to ensure stable callback references.
