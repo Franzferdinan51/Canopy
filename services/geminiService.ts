@@ -4,7 +4,7 @@ import { Nutrient, Strain, NutrientType, StrainType, UserSettings, NewsArticle, 
 
 // --- Gemini Client ---
 const getAiClient = (apiKey: string) => {
-  const key = apiKey || process.env.API_KEY;
+  const key = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
   if (!key) {
     throw new Error("API Key not found. Please check your settings.");
   }
