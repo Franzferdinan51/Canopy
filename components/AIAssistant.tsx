@@ -31,6 +31,72 @@ const QUICK_PROMPTS = [
   { label: "Crop Steering", icon: Zap, prompt: "How can I use crop steering techniques to bulk up my flowers using my current nutrients?" },
 ];
 
+// --- Voice Output Logic ---
+const speakText = (text: string) => {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.text = text.replace(/[*#`_]/g, '');
+  window.speechSynthesis.speak(utterance);
+};
+
+// --- Memoized Chat Message Component ---
+const ChatMessageBubble = React.memo(({ msg, onSpeak }: { msg: ChatMessage, onSpeak: (text: string) => void }) => {
+  return (
+    <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+      <div className={`flex max-w-[90%] md:max-w-[75%] gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-1 ${
+          msg.role === 'user'
+            ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+            : 'bg-gradient-to-br from-canopy-400 to-canopy-600 text-white'
+        }`}>
+          {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+        </div>
+
+        <div className={`relative p-4 rounded-2xl text-sm leading-relaxed shadow-sm group ${
+          msg.role === 'user'
+            ? 'bg-gray-800 text-white rounded-tr-none'
+            : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
+        }`}>
+
+           {msg.role === 'model' && msg.isThinking && !msg.text && (
+              <div className="flex items-center gap-2 text-purple-500 mb-2 animate-pulse">
+                  <Brain size={14} />
+                  <span className="text-xs font-bold">Reasoning...</span>
+              </div>
+           )}
+
+           {msg.text ? (
+             <>
+               <div className="prose prose-sm max-w-none dark:prose-invert break-words">
+                  <ReactMarkdown>
+                    {msg.text}
+                  </ReactMarkdown>
+               </div>
+               {msg.role === 'model' && (
+                  <button
+                      onClick={() => onSpeak(msg.text)}
+                      className="absolute -bottom-6 left-0 p-1 text-gray-400 hover:text-canopy-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Read Aloud"
+                  >
+                      <Volume2 size={14} />
+                  </button>
+               )}
+             </>
+           ) : (
+             <div className="flex gap-1 h-5 items-center">
+               <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce"></div>
+               <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+               <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+             </div>
+           )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 // --- Live Voice Overlay Component ---
 const LiveSessionOverlay = ({ 
   isOpen, 
@@ -296,15 +362,6 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     recognition.start();
   };
 
-  // --- Voice Output Logic ---
-  const speakText = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.text = text.replace(/[*#`_]/g, ''); 
-    window.speechSynthesis.speak(utterance);
-  };
-
   // --- File Handling ---
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -442,57 +499,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-4 bg-white dark:bg-gray-900">
           {chatHistory.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
-              <div className={`flex max-w-[90%] md:max-w-[75%] gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-1 ${
-                  msg.role === 'user' 
-                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300' 
-                    : 'bg-gradient-to-br from-canopy-400 to-canopy-600 text-white'
-                }`}>
-                  {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
-                </div>
-
-                <div className={`relative p-4 rounded-2xl text-sm leading-relaxed shadow-sm group ${
-                  msg.role === 'user' 
-                    ? 'bg-gray-800 text-white rounded-tr-none' 
-                    : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
-                }`}>
-                   
-                   {msg.role === 'model' && msg.isThinking && !msg.text && (
-                      <div className="flex items-center gap-2 text-purple-500 mb-2 animate-pulse">
-                          <Brain size={14} />
-                          <span className="text-xs font-bold">Reasoning...</span>
-                      </div>
-                   )}
-
-                   {msg.text ? (
-                     <>
-                       <div className="prose prose-sm max-w-none dark:prose-invert break-words">
-                          <ReactMarkdown>
-                            {msg.text}
-                          </ReactMarkdown>
-                       </div>
-                       {msg.role === 'model' && (
-                          <button 
-                              onClick={() => speakText(msg.text)}
-                              className="absolute -bottom-6 left-0 p-1 text-gray-400 hover:text-canopy-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Read Aloud"
-                          >
-                              <Volume2 size={14} />
-                          </button>
-                       )}
-                     </>
-                   ) : (
-                     <div className="flex gap-1 h-5 items-center">
-                       <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce"></div>
-                       <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                       <div className="w-2 h-2 bg-canopy-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                     </div>
-                   )}
-                </div>
-              </div>
-            </div>
+             <ChatMessageBubble key={idx} msg={msg} onSpeak={speakText} />
           ))}
           <div ref={messagesEndRef} />
         </div>
