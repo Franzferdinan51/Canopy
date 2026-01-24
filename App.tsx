@@ -348,7 +348,11 @@ const App: React.FC = () => {
             <div className="w-8 h-8 bg-canopy-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">C</div>
             <span className="font-bold text-gray-800 dark:text-white">Canopy</span>
         </div>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-gray-600 dark:text-gray-300">
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="text-gray-600 dark:text-gray-300"
+          aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
+        >
           {isSidebarOpen ? <X /> : <Menu />}
         </button>
       </div>
@@ -437,6 +441,7 @@ const App: React.FC = () => {
                 onClick={() => setIsAssistantOpen(true)}
                 className="fixed bottom-6 right-6 bg-canopy-600 hover:bg-canopy-700 text-white p-4 rounded-full shadow-lg z-50 transition-transform hover:scale-105"
                 title="Open Canopy Assistant"
+                aria-label="Open Canopy Assistant"
               >
                 <Bot size={24} />
               </button>

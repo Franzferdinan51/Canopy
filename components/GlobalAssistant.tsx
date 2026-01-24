@@ -104,10 +104,18 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
            {isLoading && <div className="w-2 h-2 bg-white rounded-full animate-bounce" />}
         </div>
         <div className="flex items-center gap-1 text-white/80">
-          <button onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} className="p-1 hover:text-white">
+          <button
+            onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}
+            className="p-1 hover:text-white"
+            aria-label={isMinimized ? "Maximize assistant" : "Minimize assistant"}
+          >
              {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
           </button>
-          <button onClick={(e) => { e.stopPropagation(); setIsOpen(false); }} className="p-1 hover:text-white">
+          <button
+            onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}
+            className="p-1 hover:text-white"
+            aria-label="Close assistant"
+          >
              <X size={16} />
           </button>
         </div>
@@ -120,6 +128,7 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
                value={selectedModel}
                onChange={(e) => setSelectedModel(e.target.value as AiModelId)}
                className="text-[10px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-1 py-1 text-gray-700 dark:text-gray-300 outline-none"
+               aria-label="Select AI model"
              >
                 <option value="gemini-3-flash-preview">⚡ Flash</option>
                 <option value="gemini-3-pro-preview">🧠 Pro</option>
@@ -156,7 +165,13 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
                  {attachments.map((_, i) => (
                      <div key={i} className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center relative">
                          <Paperclip size={12} />
-                         <button onClick={() => setAttachments([])} className="absolute -top-1 -right-1 bg-red-500 rounded-full w-3 h-3 flex items-center justify-center text-[8px] text-white">x</button>
+                         <button
+                           onClick={() => setAttachments([])}
+                           className="absolute -top-1 -right-1 bg-red-500 rounded-full w-3 h-3 flex items-center justify-center text-[8px] text-white"
+                           aria-label="Remove attachment"
+                         >
+                           <X size={8} />
+                         </button>
                      </div>
                  ))}
              </div>
@@ -165,10 +180,20 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
           {/* Input */}
           <form onSubmit={(e) => handleSubmit(e)} className="p-3 bg-gray-50 dark:bg-gray-950 border-t border-gray-100 dark:border-gray-800 flex gap-2 items-center">
             <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} accept="image/*" />
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              aria-label="Attach file"
+            >
                 <Paperclip size={18} />
             </button>
-            <button type="button" onClick={toggleListening} className={`${isListening ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-gray-600'}`}>
+            <button
+              type="button"
+              onClick={toggleListening}
+              className={`${isListening ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-gray-600'}`}
+              aria-label={isListening ? "Stop voice input" : "Start voice input"}
+            >
                 <Mic size={18} />
             </button>
 
@@ -184,6 +209,7 @@ export const GlobalAssistant: React.FC<GlobalAssistantProps> = ({
               type="submit" 
               disabled={!query.trim() || isLoading}
               className="bg-canopy-600 hover:bg-canopy-700 text-white p-2 rounded-lg disabled:opacity-50"
+              aria-label="Send message"
             >
               <Send size={16} />
             </button>
