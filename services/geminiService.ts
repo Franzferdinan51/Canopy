@@ -313,9 +313,7 @@ export const askGrowAssistant = async (
       history: pastHistory
     });
 
-    const streamResponse = await chat.sendMessageStream({ 
-      message: { parts: userContentParts }
-    });
+    const streamResponse = await chat.sendMessageStream({ message: userContentParts });
 
     let fullText = '';
     
