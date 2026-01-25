@@ -1,18 +1,20 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog, BreedingProject, AgentAction, ChatMessage, Attachment, AiModelId, ChatSession } from './types';
-import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3, ShoppingCart } from 'lucide-react';
+import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3, ShoppingCart, Loader2 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
-import { NutrientList } from './components/NutrientList';
-import { StrainList } from './components/StrainList';
-import { AIAssistant } from './components/AIAssistant';
-import { Settings } from './components/Settings';
-import { NewsFeed } from './components/NewsFeed';
-import { BreedingLab } from './components/BreedingLab';
-import { Analytics } from './components/Analytics';
-import { OrderPage } from './components/OrderPage';
-import { GlobalAssistant } from './components/GlobalAssistant';
 import { askGrowAssistant } from './services/geminiService';
+
+// Lazy loaded components (Code Splitting)
+const NutrientList = lazy(() => import('./components/NutrientList').then(module => ({ default: module.NutrientList })));
+const StrainList = lazy(() => import('./components/StrainList').then(module => ({ default: module.StrainList })));
+const AIAssistant = lazy(() => import('./components/AIAssistant').then(module => ({ default: module.AIAssistant })));
+const Settings = lazy(() => import('./components/Settings').then(module => ({ default: module.Settings })));
+const NewsFeed = lazy(() => import('./components/NewsFeed').then(module => ({ default: module.NewsFeed })));
+const BreedingLab = lazy(() => import('./components/BreedingLab').then(module => ({ default: module.BreedingLab })));
+const Analytics = lazy(() => import('./components/Analytics').then(module => ({ default: module.Analytics })));
+const OrderPage = lazy(() => import('./components/OrderPage').then(module => ({ default: module.OrderPage })));
+const GlobalAssistant = lazy(() => import('./components/GlobalAssistant').then(module => ({ default: module.GlobalAssistant })));
 
 // --- DEFAULT DATA CONSTANTS ---
 const DEFAULT_NUTRIENTS: Nutrient[] = [
@@ -57,6 +59,12 @@ const DEFAULT_STRAINS: Strain[] = [
   { id: '27', name: 'Xinjiang', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
 ].map(s => ({ ...s, cost: 0, rating: 0, parents: [], grandparents: [], infoUrl: '' }));
 
+
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-full w-full text-canopy-600 dark:text-canopy-400">
+    <Loader2 size={48} className="animate-spin" />
+  </div>
+);
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -389,47 +397,53 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 h-full overflow-hidden pt-14 md:pt-0 relative dark:bg-gray-950">
-        {currentView === 'dashboard' && <Dashboard nutrients={nutrients} strains={strains} onViewChange={setCurrentView} settings={settings} />}
-        {currentView === 'nutrients' && <NutrientList nutrients={nutrients} setNutrients={setNutrients} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
-        {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
-        {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} breedingProjects={breedingProjects} setBreedingProjects={setBreedingProjects} settings={settings} onTriggerAI={triggerGlobalAI} />}
-        {currentView === 'order' && <OrderPage nutrients={nutrients} setNutrients={setNutrients} strains={strains} setStrains={setStrains} settings={settings} />}
-        
-        {/* Full Page Assistant */}
-        {currentView === 'assistant' && (
-            <AIAssistant 
-                chatHistory={chatHistory}
-                isLoading={isChatLoading}
-                onSendMessage={handleUnifiedSendMessage}
-                nutrients={nutrients} 
-                strains={strains} 
-                breedingProjects={breedingProjects} 
-                settings={settings}
-                
-                // Session Props
-                sessions={chatSessions}
-                currentSessionId={currentSessionId}
-                onNewChat={startNewChat}
-                onLoadSession={loadSession}
-                onDeleteSession={deleteSession}
-            />
-        )}
-        
-        {currentView === 'news' && <NewsFeed settings={settings} />}
-        {currentView === 'analytics' && <Analytics history={history} nutrients={nutrients} strains={strains} settings={settings} />}
-        {currentView === 'settings' && <Settings settings={settings} onSave={handleSaveSettings} />}
-        
+        <Suspense fallback={<LoadingFallback />}>
+          {currentView === 'dashboard' && <Dashboard nutrients={nutrients} strains={strains} onViewChange={setCurrentView} settings={settings} />}
+          {currentView === 'nutrients' && <NutrientList nutrients={nutrients} setNutrients={setNutrients} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
+          {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
+          {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} breedingProjects={breedingProjects} setBreedingProjects={setBreedingProjects} settings={settings} onTriggerAI={triggerGlobalAI} />}
+          {currentView === 'order' && <OrderPage nutrients={nutrients} setNutrients={setNutrients} strains={strains} setStrains={setStrains} settings={settings} />}
+
+          {/* Full Page Assistant */}
+          {currentView === 'assistant' && (
+              <AIAssistant
+                  chatHistory={chatHistory}
+                  isLoading={isChatLoading}
+                  onSendMessage={handleUnifiedSendMessage}
+                  nutrients={nutrients}
+                  strains={strains}
+                  breedingProjects={breedingProjects}
+                  settings={settings}
+
+                  // Session Props
+                  sessions={chatSessions}
+                  currentSessionId={currentSessionId}
+                  onNewChat={startNewChat}
+                  onLoadSession={loadSession}
+                  onDeleteSession={deleteSession}
+              />
+          )}
+
+          {currentView === 'news' && <NewsFeed settings={settings} />}
+          {currentView === 'analytics' && <Analytics history={history} nutrients={nutrients} strains={strains} settings={settings} />}
+          {currentView === 'settings' && <Settings settings={settings} onSave={handleSaveSettings} />}
+        </Suspense>
+
         {/* Floating Global Assistant - Only show if NOT on the main assistant page */}
         {currentView !== 'assistant' && (
           <>
-            <GlobalAssistant 
-              chatHistory={chatHistory}
-              isLoading={isChatLoading}
-              onSendMessage={handleUnifiedSendMessage}
-              isOpen={isAssistantOpen} 
-              setIsOpen={setIsAssistantOpen} 
-              settings={settings} 
-            />
+            {isAssistantOpen && (
+              <Suspense fallback={null}>
+                <GlobalAssistant
+                  chatHistory={chatHistory}
+                  isLoading={isChatLoading}
+                  onSendMessage={handleUnifiedSendMessage}
+                  isOpen={isAssistantOpen}
+                  setIsOpen={setIsAssistantOpen}
+                  settings={settings}
+                />
+              </Suspense>
+            )}
             
             {/* Assistant Trigger FAB (Only show if not open) */}
             {!isAssistantOpen && (
