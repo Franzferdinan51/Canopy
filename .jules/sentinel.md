@@ -1,0 +1,4 @@
+## 2026-01-25 - Indirect Prompt Injection via Unsanitized Context
+**Vulnerability:** User-defined data (nutrient brands, strain notes) was injected directly into the system prompt for the AI Assistant. This allowed for "Indirect Prompt Injection," where malicious data could trick the AI into executing unauthorized Agentic Commands (like navigation or data modification) by outputting a JSON command block.
+**Learning:** Always treat data fed to an LLM context as untrusted user input. Even "internal" database content might have been set by a user.
+**Prevention:** Sanitize all context data (strip markdown code blocks, JSON delimiters) before adding it to the system prompt. Implement strict validation schemas for any structured output (JSON) parsed from the LLM to ensure it matches allowed actions.

@@ -25,6 +25,14 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
+// --- Helper: Sanitize Context ---
+const sanitizeForContext = (str: string | undefined | null): string => {
+  if (!str) return "";
+  // Remove backticks to prevent markdown injection
+  // Remove curly braces to prevent JSON injection
+  return str.replace(/[`{}]/g, "").trim();
+};
+
 // --- Inventory Scanning ---
 export const scanInventoryItem = async (
   base64Image: string, 
@@ -220,9 +228,9 @@ export const askGrowAssistant = async (
   const safeStrains = inventoryContext.strains || [];
   const safeProjects = inventoryContext.breedingProjects || [];
   
-  const nutrientList = safeNutrients.map(n => `- ${n.brand} ${n.name} (${n.npk}, ${n.bottleCount} bottles)`).join('\n');
-  const strainList = safeStrains.map(s => `- ${s.id}: ${s.breeder} ${s.name} (${s.type}, ${s.floweringTimeWeeks}w, ${s.inventoryCount} seeds)`).join('\n');
-  const projectList = safeProjects.map(p => `- ${p.id}: "${p.name}" (Status: ${p.status}, Start: ${p.startDate})`).join('\n');
+  const nutrientList = safeNutrients.map(n => `- ${sanitizeForContext(n.brand)} ${sanitizeForContext(n.name)} (${sanitizeForContext(n.npk)}, ${n.bottleCount} bottles)`).join('\n');
+  const strainList = safeStrains.map(s => `- ${s.id}: ${sanitizeForContext(s.breeder)} ${sanitizeForContext(s.name)} (${sanitizeForContext(s.type)}, ${s.floweringTimeWeeks}w, ${s.inventoryCount} seeds)`).join('\n');
+  const projectList = safeProjects.map(p => `- ${p.id}: "${sanitizeForContext(p.name)}" (Status: ${sanitizeForContext(p.status)}, Start: ${sanitizeForContext(p.startDate)})`).join('\n');
   
   const currentDate = new Date().toLocaleDateString();
 
@@ -334,7 +342,19 @@ export const askGrowAssistant = async (
     if (match && match[1] && onAgentAction) {
         try {
             const action = JSON.parse(match[1]);
-            onAgentAction(action);
+
+            // Validate Action Structure (Security Fix)
+            if (
+              action &&
+              typeof action === 'object' &&
+              typeof action.type === 'string' &&
+              ['NAVIGATE', 'MOVE_PROJECT', 'CREATE_PROJECT'].includes(action.type)
+            ) {
+               onAgentAction(action);
+            } else {
+               console.warn("Blocked potentially unsafe Agent Action:", action);
+            }
+
             // Clean the JSON out of the visible chat
             fullText = fullText.replace(match[0], '').trim();
             // Perform one last update to clean UI
