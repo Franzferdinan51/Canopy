@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Nutrient, NutrientType, UserSettings, UsageLog } from '../types';
-import { Plus, Trash2, Camera, Droplet, Loader2, Pencil, Package, History, DollarSign, Bot } from 'lucide-react';
+import { Plus, Trash2, Camera, Droplet, Loader2, Pencil, Package, History, DollarSign, Bot, X } from 'lucide-react';
 import { fileToGenerativePart, scanInventoryItem } from '../services/geminiService';
 
 interface NutrientListProps {
@@ -202,10 +202,10 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
                   {nutrient.type}
                 </span>
                 <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-                   <button onClick={() => handleEdit(nutrient)} className="text-gray-400 hover:text-blue-500 transition-colors mr-2" title="Edit">
+                   <button onClick={() => handleEdit(nutrient)} className="text-gray-400 hover:text-blue-500 transition-colors mr-2" title="Edit" aria-label={`Edit ${nutrient.name}`}>
                     <Pencil size={16} />
                   </button>
-                  <button onClick={() => handleDelete(nutrient.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="Delete">
+                  <button onClick={() => handleDelete(nutrient.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${nutrient.name}`}>
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -249,7 +249,7 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
               <h3 className="text-xl font-bold text-gray-800 dark:text-white">
                 {editingId ? 'Edit Nutrient' : 'Add New Nutrient'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">X</button>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Close modal"><X size={24} /></button>
             </div>
             
             <form onSubmit={handleAdd} className="p-6 space-y-4">
@@ -262,13 +262,13 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <input required name="brand" value={formData.brand} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" placeholder="Brand" />
-                <input required name="name" value={formData.name} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" placeholder="Name" />
+                <input required name="brand" value={formData.brand} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" placeholder="Brand" aria-label="Brand" autoFocus />
+                <input required name="name" value={formData.name} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" placeholder="Name" aria-label="Nutrient Name" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <input name="npk" value={formData.npk} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" placeholder="NPK (0-0-0)" />
-                <select name="type" value={formData.type} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white">
+                <input name="npk" value={formData.npk} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" placeholder="NPK (0-0-0)" aria-label="NPK Ratio" />
+                <select name="type" value={formData.type} onChange={handleInputChange} className="input-field w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" aria-label="Nutrient Type">
                   {Object.values(NutrientType).map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
@@ -276,15 +276,15 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
               <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-1">
                   <label className="text-xs text-gray-500">Size (L)</label>
-                  <input type="number" step="0.1" name="volumeLiters" value={formData.volumeLiters} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" />
+                  <input type="number" step="0.1" name="volumeLiters" value={formData.volumeLiters} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" aria-label="Size in Liters" />
                 </div>
                 <div className="col-span-1">
                    <label className="text-xs text-gray-500">Bottles</label>
-                   <input type="number" step="1" name="bottleCount" value={formData.bottleCount} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" />
+                   <input type="number" step="1" name="bottleCount" value={formData.bottleCount} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" aria-label="Bottle Count" />
                 </div>
                 <div className="col-span-1">
                    <label className="text-xs text-gray-500">Cost ($)</label>
-                   <input type="number" step="0.01" name="cost" value={formData.cost} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" />
+                   <input type="number" step="0.01" name="cost" value={formData.cost} onChange={handleInputChange} className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white" aria-label="Cost per unit" />
                 </div>
               </div>
 
@@ -305,8 +305,9 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
              
              <div className="flex gap-4 mb-6">
                <div className="flex-1">
-                 <label className="text-xs font-semibold text-gray-500 uppercase">Amount</label>
+                 <label htmlFor="dose-amount" className="text-xs font-semibold text-gray-500 uppercase">Amount</label>
                  <input 
+                   id="dose-amount"
                    type="number" 
                    value={doseAmount} 
                    onChange={(e) => setDoseAmount(parseFloat(e.target.value))} 
@@ -314,8 +315,9 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
                  />
                </div>
                <div className="flex-1">
-                 <label className="text-xs font-semibold text-gray-500 uppercase">Unit</label>
+                 <label htmlFor="dose-unit" className="text-xs font-semibold text-gray-500 uppercase">Unit</label>
                  <select 
+                   id="dose-unit"
                    value={doseUnit} 
                    onChange={(e) => setDoseUnit(e.target.value as any)} 
                    className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-white"
