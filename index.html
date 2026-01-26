@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://aistudiocdn.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://t2.gstatic.com; connect-src 'self' https://generativelanguage.googleapis.com https://aistudiocdn.com;">
     <title>Canopy - AI Grow Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -52,5 +53,6 @@
 </head>
   <body class="bg-gray-50 text-gray-900 h-screen overflow-hidden dark:bg-gray-950 dark:text-gray-100">
     <div id="root" class="h-full"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
