@@ -3,15 +3,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog, BreedingProject, AgentAction, ChatMessage, Attachment, AiModelId, ChatSession } from './types';
 import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3, ShoppingCart } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
-import { NutrientList } from './components/NutrientList';
-import { StrainList } from './components/StrainList';
-import { AIAssistant } from './components/AIAssistant';
-import { Settings } from './components/Settings';
-import { NewsFeed } from './components/NewsFeed';
-import { BreedingLab } from './components/BreedingLab';
-import { Analytics } from './components/Analytics';
-import { OrderPage } from './components/OrderPage';
 import { GlobalAssistant } from './components/GlobalAssistant';
+
+// Lazy load route components for performance
+const NutrientList = React.lazy(() => import('./components/NutrientList').then(module => ({ default: module.NutrientList })));
+const StrainList = React.lazy(() => import('./components/StrainList').then(module => ({ default: module.StrainList })));
+const AIAssistant = React.lazy(() => import('./components/AIAssistant').then(module => ({ default: module.AIAssistant })));
+const Settings = React.lazy(() => import('./components/Settings').then(module => ({ default: module.Settings })));
+const NewsFeed = React.lazy(() => import('./components/NewsFeed').then(module => ({ default: module.NewsFeed })));
+const BreedingLab = React.lazy(() => import('./components/BreedingLab').then(module => ({ default: module.BreedingLab })));
+const Analytics = React.lazy(() => import('./components/Analytics').then(module => ({ default: module.Analytics })));
+const OrderPage = React.lazy(() => import('./components/OrderPage').then(module => ({ default: module.OrderPage })));
 import { askGrowAssistant } from './services/geminiService';
 
 // --- DEFAULT DATA CONSTANTS ---
@@ -57,6 +59,12 @@ const DEFAULT_STRAINS: Strain[] = [
   { id: '27', name: 'Xinjiang', breeder: 'Landrace', type: StrainType.INDICA, floweringTimeWeeks: 8, inventoryCount: 10, isAuto: false, isLandrace: true },
 ].map(s => ({ ...s, cost: 0, rating: 0, parents: [], grandparents: [], infoUrl: '' }));
 
+
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center h-full w-full p-20">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-canopy-600 dark:border-canopy-400"></div>
+  </div>
+);
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -389,35 +397,37 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 h-full overflow-hidden pt-14 md:pt-0 relative dark:bg-gray-950">
-        {currentView === 'dashboard' && <Dashboard nutrients={nutrients} strains={strains} onViewChange={setCurrentView} settings={settings} />}
-        {currentView === 'nutrients' && <NutrientList nutrients={nutrients} setNutrients={setNutrients} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
-        {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
-        {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} breedingProjects={breedingProjects} setBreedingProjects={setBreedingProjects} settings={settings} onTriggerAI={triggerGlobalAI} />}
-        {currentView === 'order' && <OrderPage nutrients={nutrients} setNutrients={setNutrients} strains={strains} setStrains={setStrains} settings={settings} />}
-        
-        {/* Full Page Assistant */}
-        {currentView === 'assistant' && (
-            <AIAssistant 
-                chatHistory={chatHistory}
-                isLoading={isChatLoading}
-                onSendMessage={handleUnifiedSendMessage}
-                nutrients={nutrients} 
-                strains={strains} 
-                breedingProjects={breedingProjects} 
-                settings={settings}
-                
-                // Session Props
-                sessions={chatSessions}
-                currentSessionId={currentSessionId}
-                onNewChat={startNewChat}
-                onLoadSession={loadSession}
-                onDeleteSession={deleteSession}
-            />
-        )}
-        
-        {currentView === 'news' && <NewsFeed settings={settings} />}
-        {currentView === 'analytics' && <Analytics history={history} nutrients={nutrients} strains={strains} settings={settings} />}
-        {currentView === 'settings' && <Settings settings={settings} onSave={handleSaveSettings} />}
+        <React.Suspense fallback={<LoadingSpinner />}>
+          {currentView === 'dashboard' && <Dashboard nutrients={nutrients} strains={strains} onViewChange={setCurrentView} settings={settings} />}
+          {currentView === 'nutrients' && <NutrientList nutrients={nutrients} setNutrients={setNutrients} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
+          {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
+          {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} breedingProjects={breedingProjects} setBreedingProjects={setBreedingProjects} settings={settings} onTriggerAI={triggerGlobalAI} />}
+          {currentView === 'order' && <OrderPage nutrients={nutrients} setNutrients={setNutrients} strains={strains} setStrains={setStrains} settings={settings} />}
+
+          {/* Full Page Assistant */}
+          {currentView === 'assistant' && (
+              <AIAssistant
+                  chatHistory={chatHistory}
+                  isLoading={isChatLoading}
+                  onSendMessage={handleUnifiedSendMessage}
+                  nutrients={nutrients}
+                  strains={strains}
+                  breedingProjects={breedingProjects}
+                  settings={settings}
+
+                  // Session Props
+                  sessions={chatSessions}
+                  currentSessionId={currentSessionId}
+                  onNewChat={startNewChat}
+                  onLoadSession={loadSession}
+                  onDeleteSession={deleteSession}
+              />
+          )}
+
+          {currentView === 'news' && <NewsFeed settings={settings} />}
+          {currentView === 'analytics' && <Analytics history={history} nutrients={nutrients} strains={strains} settings={settings} />}
+          {currentView === 'settings' && <Settings settings={settings} onSave={handleSaveSettings} />}
+        </React.Suspense>
         
         {/* Floating Global Assistant - Only show if NOT on the main assistant page */}
         {currentView !== 'assistant' && (
