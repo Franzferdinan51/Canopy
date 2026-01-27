@@ -2,6 +2,24 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Nutrient, Strain, NutrientType, StrainType, UserSettings, NewsArticle, GeneticAnalysis, UsageLog, LineageNode, ProductAlternative, Attachment, AiModelId, BreedingProject } from '../types';
 
+// --- Helper: Validation & Sanitization ---
+const isValidUrl = (string: string): boolean => {
+  try {
+    // Reject if contains whitespace or quotes to prevent injection/formatting issues
+    if (/\s/.test(string) || string.includes('"') || string.includes("'")) return false;
+    new URL(string);
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
+
+const sanitizePromptInput = (input: string): string => {
+  if (!input) return "";
+  // Remove control characters (0-31 and 127) and escape double quotes
+  return input.replace(/[\x00-\x1F\x7F]/g, "").replace(/"/g, "'");
+};
+
 // --- Gemini Client ---
 const getAiClient = (apiKey: string) => {
   const key = apiKey || process.env.API_KEY;
@@ -94,6 +112,10 @@ export const fetchStrainDataFromUrl = async (
   url: string,
   settings: UserSettings
 ): Promise<Partial<Strain>> => {
+  if (!isValidUrl(url)) {
+    throw new Error("Invalid URL provided");
+  }
+
   const ai = getAiClient(settings.geminiApiKey);
   
   const prompt = `TARGET URL: "${url}"
@@ -173,7 +195,10 @@ export const findProductAlternatives = async (
 ): Promise<ProductAlternative[]> => {
   const ai = getAiClient(settings.geminiApiKey);
 
-  const prompt = `Find 3 excellent alternative products for: "${brand} ${itemName}" (${category}).
+  const safeBrand = sanitizePromptInput(brand);
+  const safeItemName = sanitizePromptInput(itemName);
+
+  const prompt = `Find 3 excellent alternative products for: "${safeBrand} ${safeItemName}" (${category}).
   
   Criteria:
   1. Similar or better quality.
@@ -220,9 +245,9 @@ export const askGrowAssistant = async (
   const safeStrains = inventoryContext.strains || [];
   const safeProjects = inventoryContext.breedingProjects || [];
   
-  const nutrientList = safeNutrients.map(n => `- ${n.brand} ${n.name} (${n.npk}, ${n.bottleCount} bottles)`).join('\n');
-  const strainList = safeStrains.map(s => `- ${s.id}: ${s.breeder} ${s.name} (${s.type}, ${s.floweringTimeWeeks}w, ${s.inventoryCount} seeds)`).join('\n');
-  const projectList = safeProjects.map(p => `- ${p.id}: "${p.name}" (Status: ${p.status}, Start: ${p.startDate})`).join('\n');
+  const nutrientList = safeNutrients.map(n => `- ${sanitizePromptInput(n.brand)} ${sanitizePromptInput(n.name)} (${sanitizePromptInput(n.npk)}, ${n.bottleCount} bottles)`).join('\n');
+  const strainList = safeStrains.map(s => `- ${s.id}: ${sanitizePromptInput(s.breeder)} ${sanitizePromptInput(s.name)} (${s.type}, ${s.floweringTimeWeeks}w, ${s.inventoryCount} seeds)`).join('\n');
+  const projectList = safeProjects.map(p => `- ${p.id}: "${sanitizePromptInput(p.name)}" (Status: ${p.status}, Start: ${p.startDate})`).join('\n');
   
   const currentDate = new Date().toLocaleDateString();
 
