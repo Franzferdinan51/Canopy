@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Nutrient, Strain, StrainType, NutrientType, View, UserSettings } from '../types';
 import { Leaf, Droplets, Sprout, Wind, TrendingDown, PlusCircle, ArrowRight, Bot, Sparkles } from 'lucide-react';
-import { generateDashboardBriefing } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 
 interface DashboardProps {
@@ -30,6 +29,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ nutrients, strains, onView
     let mounted = true;
     const fetchBriefing = async () => {
       try {
+        const { generateDashboardBriefing } = await import('../services/geminiService');
         const text = await generateDashboardBriefing(nutrients, strains, settings);
         if (mounted) setBriefing(text);
       } catch (e) {
