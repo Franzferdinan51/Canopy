@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Strain, StrainType, UserSettings, LineageNode, UsageLog } from '../types';
-import { Plus, Trash2, Camera, Flower, Clock, Pencil, Loader2, StickyNote, Link as LinkIcon, GitMerge, ExternalLink, History, Sprout, Star, Sparkles, Bot } from 'lucide-react';
+import { Plus, Trash2, Camera, Flower, Clock, Pencil, Loader2, StickyNote, Link as LinkIcon, GitMerge, ExternalLink, History, Sprout, Star, Sparkles, Bot, X } from 'lucide-react';
 import { fileToGenerativePart, scanInventoryItem, fetchStrainDataFromUrl } from '../services/geminiService';
 
 interface StrainListProps {
@@ -255,14 +255,14 @@ export const StrainList: React.FC<StrainListProps> = ({ strains, setStrains, set
                   'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
                 }`}>{strain.type}</span>
                 <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => handleEdit(strain)} className="text-gray-400 hover:text-blue-500 transition-colors mr-2"><Pencil size={16} /></button>
-                  <button onClick={() => handleDelete(strain.id)} className="text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                  <button onClick={() => handleEdit(strain)} className="text-gray-400 hover:text-blue-500 transition-colors mr-2" aria-label="Edit strain"><Pencil size={16} /></button>
+                  <button onClick={() => handleDelete(strain.id)} className="text-gray-400 hover:text-red-500 transition-colors" aria-label="Delete strain"><Trash2 size={16} /></button>
                 </div>
               </div>
               
               <div className="flex items-center gap-2 mb-1">
                  <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 truncate">{strain.name}</h3>
-                 {strain.infoUrl && <a href={strain.infoUrl} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-canopy-500"><ExternalLink size={14} /></a>}
+                 {strain.infoUrl && <a href={strain.infoUrl} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-canopy-500" aria-label="View strain info"><ExternalLink size={14} /></a>}
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-3 truncate">{strain.breeder}</p>
               
@@ -298,7 +298,7 @@ export const StrainList: React.FC<StrainListProps> = ({ strains, setStrains, set
           <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-2xl shadow-xl overflow-hidden animate-fade-in max-h-[90vh] overflow-y-auto border border-gray-100 dark:border-gray-800">
             <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-900 z-20">
               <h3 className="text-xl font-bold text-gray-800 dark:text-white">{editingId ? 'Edit Strain' : 'Add New Strain'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">X</button>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Close modal"><X size={20} /></button>
             </div>
             
             <form onSubmit={handleAdd} className="p-6 space-y-6">
