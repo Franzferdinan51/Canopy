@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Nutrient, NutrientType, UserSettings, UsageLog } from '../types';
-import { Plus, Trash2, Camera, Droplet, Loader2, Pencil, Package, History, DollarSign, Bot } from 'lucide-react';
+import { Plus, Trash2, Camera, Droplet, Loader2, Pencil, Package, History, DollarSign, Bot, X } from 'lucide-react';
 import { fileToGenerativePart, scanInventoryItem } from '../services/geminiService';
 
 interface NutrientListProps {
@@ -202,10 +202,10 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
                   {nutrient.type}
                 </span>
                 <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-                   <button onClick={() => handleEdit(nutrient)} className="text-gray-400 hover:text-blue-500 transition-colors mr-2" title="Edit">
+                   <button onClick={() => handleEdit(nutrient)} className="text-gray-400 hover:text-blue-500 transition-colors mr-2" title="Edit" aria-label="Edit nutrient">
                     <Pencil size={16} />
                   </button>
-                  <button onClick={() => handleDelete(nutrient.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="Delete">
+                  <button onClick={() => handleDelete(nutrient.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="Delete" aria-label="Delete nutrient">
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -249,7 +249,7 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
               <h3 className="text-xl font-bold text-gray-800 dark:text-white">
                 {editingId ? 'Edit Nutrient' : 'Add New Nutrient'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">X</button>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Close modal"><X size={20} /></button>
             </div>
             
             <form onSubmit={handleAdd} className="p-6 space-y-4">
