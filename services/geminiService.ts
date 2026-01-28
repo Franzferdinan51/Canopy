@@ -11,6 +11,24 @@ const getAiClient = (apiKey: string) => {
   return new GoogleGenAI({ apiKey: key });
 };
 
+// --- Security Helpers ---
+export const sanitizePromptInput = (input: string): string => {
+  if (!input) return "";
+  return input
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    .replace(/"/g, '\\"')
+    .trim();
+};
+
+export const isValidUrl = (url: string): boolean => {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // --- Helper: File to Base64 ---
 export const fileToGenerativePart = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -94,9 +112,12 @@ export const fetchStrainDataFromUrl = async (
   url: string,
   settings: UserSettings
 ): Promise<Partial<Strain>> => {
+  if (!isValidUrl(url)) {
+    throw new Error("Invalid URL format.");
+  }
   const ai = getAiClient(settings.geminiApiKey);
   
-  const prompt = `TARGET URL: "${url}"
+  const prompt = `TARGET URL: "${sanitizePromptInput(url)}"
 
   ROLE: You are a research assistant.
   OBJECTIVE: Find definitive growing information for the cannabis strain at the provided URL.
@@ -173,7 +194,7 @@ export const findProductAlternatives = async (
 ): Promise<ProductAlternative[]> => {
   const ai = getAiClient(settings.geminiApiKey);
 
-  const prompt = `Find 3 excellent alternative products for: "${brand} ${itemName}" (${category}).
+  const prompt = `Find 3 excellent alternative products for: "${sanitizePromptInput(brand)} ${sanitizePromptInput(itemName)}" (${category}).
   
   Criteria:
   1. Similar or better quality.
@@ -369,11 +390,11 @@ export const analyzeGenetics = async (
 
   let knownLineageContext = "";
   if (targetStrain.parents && targetStrain.parents.length > 0) {
-    const parentStr = targetStrain.parents.map(p => `${p.name} (${p.type})`).join(', ');
+    const parentStr = targetStrain.parents.map(p => `${sanitizePromptInput(p.name)} (${p.type})`).join(', ');
     knownLineageContext += `KNOWN PARENTS: ${parentStr}.\n`;
   }
 
-  const prompt = `Analyze the cannabis strain "${targetStrain.name}" by ${targetStrain.breeder}.
+  const prompt = `Analyze the cannabis strain "${sanitizePromptInput(targetStrain.name)}" by ${sanitizePromptInput(targetStrain.breeder)}.
   ${knownLineageContext ? `IMPORTANT: Use this lineage:\n${knownLineageContext}` : 'TASK 1: Determine lineage.'}
   
   TASK 2: Suggest Breeding Matches from "Potential Partners".
@@ -431,7 +452,7 @@ export const analyzeGrowData = async (
 ): Promise<string> => {
   const ai = getAiClient(settings.geminiApiKey);
 
-  const logSummary = logs.slice(0, 50).map(l => `${l.date}: ${l.action} ${l.amount}${l.unit} of ${l.itemName} (${l.category})`).join('\n');
+  const logSummary = logs.slice(0, 50).map(l => `${l.date}: ${sanitizePromptInput(l.action)} ${l.amount}${l.unit} of ${sanitizePromptInput(l.itemName)} (${sanitizePromptInput(l.category)})`).join('\n');
   const totalValue = nutrients.reduce((acc, n) => acc + ((n.cost || 0) * (n.bottleCount || 0)), 0) + 
                      strains.reduce((acc, s) => acc + (s.cost || 0), 0);
 
@@ -463,7 +484,7 @@ export const generateDashboardBriefing = async (
 
   const prompt = `
   You are 'Canopy', a Master Grower AI.
-  Grower Name: ${settings.userName}
+  Grower Name: ${sanitizePromptInput(settings.userName)}
   Context:
   - Total Strains: ${strains.length}
   - Nutrient Bottles: ${totalBottles}
