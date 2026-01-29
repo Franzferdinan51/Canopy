@@ -1,18 +1,20 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { View, Nutrient, Strain, NutrientType, StrainType, UserSettings, UsageLog, BreedingProject, AgentAction, ChatMessage, Attachment, AiModelId, ChatSession } from './types';
 import { LayoutDashboard, Beaker, Sprout, Bot, Menu, X, Settings as SettingsIcon, Newspaper, Dna, BarChart3, ShoppingCart } from 'lucide-react';
-import { Dashboard } from './components/Dashboard';
-import { NutrientList } from './components/NutrientList';
-import { StrainList } from './components/StrainList';
-import { AIAssistant } from './components/AIAssistant';
-import { Settings } from './components/Settings';
-import { NewsFeed } from './components/NewsFeed';
-import { BreedingLab } from './components/BreedingLab';
-import { Analytics } from './components/Analytics';
-import { OrderPage } from './components/OrderPage';
-import { GlobalAssistant } from './components/GlobalAssistant';
-import { askGrowAssistant } from './services/geminiService';
+import { LoadingFallback } from './components/LoadingFallback';
+
+// --- Lazy Loaded Components ---
+const Dashboard = React.lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
+const NutrientList = React.lazy(() => import('./components/NutrientList').then(module => ({ default: module.NutrientList })));
+const StrainList = React.lazy(() => import('./components/StrainList').then(module => ({ default: module.StrainList })));
+const AIAssistant = React.lazy(() => import('./components/AIAssistant').then(module => ({ default: module.AIAssistant })));
+const Settings = React.lazy(() => import('./components/Settings').then(module => ({ default: module.Settings })));
+const NewsFeed = React.lazy(() => import('./components/NewsFeed').then(module => ({ default: module.NewsFeed })));
+const BreedingLab = React.lazy(() => import('./components/BreedingLab').then(module => ({ default: module.BreedingLab })));
+const Analytics = React.lazy(() => import('./components/Analytics').then(module => ({ default: module.Analytics })));
+const OrderPage = React.lazy(() => import('./components/OrderPage').then(module => ({ default: module.OrderPage })));
+const GlobalAssistant = React.lazy(() => import('./components/GlobalAssistant').then(module => ({ default: module.GlobalAssistant })));
 
 // --- DEFAULT DATA CONSTANTS ---
 const DEFAULT_NUTRIENTS: Nutrient[] = [
@@ -288,6 +290,7 @@ const App: React.FC = () => {
     setChatHistory(prev => [...prev, { role: 'model', text: '', isThinking: modelId.includes('pro') }]);
 
     try {
+      const { askGrowAssistant } = await import('./services/geminiService');
       await askGrowAssistant(
         newHistory, 
         { nutrients, strains, breedingProjects, currentView }, 
@@ -389,61 +392,62 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 h-full overflow-hidden pt-14 md:pt-0 relative dark:bg-gray-950">
-        {currentView === 'dashboard' && <Dashboard nutrients={nutrients} strains={strains} onViewChange={setCurrentView} settings={settings} />}
-        {currentView === 'nutrients' && <NutrientList nutrients={nutrients} setNutrients={setNutrients} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
-        {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
-        {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} breedingProjects={breedingProjects} setBreedingProjects={setBreedingProjects} settings={settings} onTriggerAI={triggerGlobalAI} />}
-        {currentView === 'order' && <OrderPage nutrients={nutrients} setNutrients={setNutrients} strains={strains} setStrains={setStrains} settings={settings} />}
-        
-        {/* Full Page Assistant */}
-        {currentView === 'assistant' && (
-            <AIAssistant 
+        <Suspense fallback={<LoadingFallback />}>
+          {currentView === 'dashboard' && <Dashboard nutrients={nutrients} strains={strains} onViewChange={setCurrentView} settings={settings} />}
+          {currentView === 'nutrients' && <NutrientList nutrients={nutrients} setNutrients={setNutrients} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
+          {currentView === 'strains' && <StrainList strains={strains} setStrains={setStrains} settings={settings} addLog={addLog} onTriggerAI={triggerGlobalAI} />}
+          {currentView === 'breeding' && <BreedingLab strains={strains} setStrains={setStrains} breedingProjects={breedingProjects} setBreedingProjects={setBreedingProjects} settings={settings} onTriggerAI={triggerGlobalAI} />}
+          {currentView === 'order' && <OrderPage nutrients={nutrients} setNutrients={setNutrients} strains={strains} setStrains={setStrains} settings={settings} />}
+
+          {/* Full Page Assistant */}
+          {currentView === 'assistant' && (
+              <AIAssistant
+                  chatHistory={chatHistory}
+                  isLoading={isChatLoading}
+                  onSendMessage={handleUnifiedSendMessage}
+                  nutrients={nutrients}
+                  strains={strains}
+                  breedingProjects={breedingProjects}
+                  settings={settings}
+
+                  // Session Props
+                  sessions={chatSessions}
+                  currentSessionId={currentSessionId}
+                  onNewChat={startNewChat}
+                  onLoadSession={loadSession}
+                  onDeleteSession={deleteSession}
+              />
+          )}
+
+          {currentView === 'news' && <NewsFeed settings={settings} />}
+          {currentView === 'analytics' && <Analytics history={history} nutrients={nutrients} strains={strains} settings={settings} />}
+          {currentView === 'settings' && <Settings settings={settings} onSave={handleSaveSettings} />}
+
+          {/* Floating Global Assistant - Only show if NOT on the main assistant page */}
+          {currentView !== 'assistant' && (
+            <>
+              <GlobalAssistant
                 chatHistory={chatHistory}
                 isLoading={isChatLoading}
                 onSendMessage={handleUnifiedSendMessage}
-                nutrients={nutrients} 
-                strains={strains} 
-                breedingProjects={breedingProjects} 
+                isOpen={isAssistantOpen}
+                setIsOpen={setIsAssistantOpen}
                 settings={settings}
-                
-                // Session Props
-                sessions={chatSessions}
-                currentSessionId={currentSessionId}
-                onNewChat={startNewChat}
-                onLoadSession={loadSession}
-                onDeleteSession={deleteSession}
-            />
-        )}
-        
-        {currentView === 'news' && <NewsFeed settings={settings} />}
-        {currentView === 'analytics' && <Analytics history={history} nutrients={nutrients} strains={strains} settings={settings} />}
-        {currentView === 'settings' && <Settings settings={settings} onSave={handleSaveSettings} />}
-        
-        {/* Floating Global Assistant - Only show if NOT on the main assistant page */}
-        {currentView !== 'assistant' && (
-          <>
-            <GlobalAssistant 
-              chatHistory={chatHistory}
-              isLoading={isChatLoading}
-              onSendMessage={handleUnifiedSendMessage}
-              isOpen={isAssistantOpen} 
-              setIsOpen={setIsAssistantOpen} 
-              settings={settings} 
-            />
-            
-            {/* Assistant Trigger FAB (Only show if not open) */}
-            {!isAssistantOpen && (
-              <button 
-                onClick={() => setIsAssistantOpen(true)}
-                className="fixed bottom-6 right-6 bg-canopy-600 hover:bg-canopy-700 text-white p-4 rounded-full shadow-lg z-50 transition-transform hover:scale-105"
-                title="Open Canopy Assistant"
-              >
-                <Bot size={24} />
-              </button>
-            )}
-          </>
-        )}
+              />
 
+              {/* Assistant Trigger FAB (Only show if not open) */}
+              {!isAssistantOpen && (
+                <button
+                  onClick={() => setIsAssistantOpen(true)}
+                  className="fixed bottom-6 right-6 bg-canopy-600 hover:bg-canopy-700 text-white p-4 rounded-full shadow-lg z-50 transition-transform hover:scale-105"
+                  title="Open Canopy Assistant"
+                >
+                  <Bot size={24} />
+                </button>
+              )}
+            </>
+          )}
+        </Suspense>
       </main>
     </div>
   );
