@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Nutrient, Strain, NutrientType, StrainType, UserSettings, NewsArticle, GeneticAnalysis, UsageLog, LineageNode, ProductAlternative, Attachment, AiModelId, BreedingProject } from '../types';
+import { sanitizeForPrompt } from './security';
 
 // --- Gemini Client ---
 const getAiClient = (apiKey: string) => {
@@ -95,8 +96,9 @@ export const fetchStrainDataFromUrl = async (
   settings: UserSettings
 ): Promise<Partial<Strain>> => {
   const ai = getAiClient(settings.geminiApiKey);
+  const cleanUrl = sanitizeForPrompt(url);
   
-  const prompt = `TARGET URL: "${url}"
+  const prompt = `TARGET URL: "${cleanUrl}"
 
   ROLE: You are a research assistant.
   OBJECTIVE: Find definitive growing information for the cannabis strain at the provided URL.
@@ -172,8 +174,10 @@ export const findProductAlternatives = async (
   settings: UserSettings
 ): Promise<ProductAlternative[]> => {
   const ai = getAiClient(settings.geminiApiKey);
+  const cleanBrand = sanitizeForPrompt(brand);
+  const cleanName = sanitizeForPrompt(itemName);
 
-  const prompt = `Find 3 excellent alternative products for: "${brand} ${itemName}" (${category}).
+  const prompt = `Find 3 excellent alternative products for: "${cleanBrand} ${cleanName}" (${category}).
   
   Criteria:
   1. Similar or better quality.
@@ -220,9 +224,9 @@ export const askGrowAssistant = async (
   const safeStrains = inventoryContext.strains || [];
   const safeProjects = inventoryContext.breedingProjects || [];
   
-  const nutrientList = safeNutrients.map(n => `- ${n.brand} ${n.name} (${n.npk}, ${n.bottleCount} bottles)`).join('\n');
-  const strainList = safeStrains.map(s => `- ${s.id}: ${s.breeder} ${s.name} (${s.type}, ${s.floweringTimeWeeks}w, ${s.inventoryCount} seeds)`).join('\n');
-  const projectList = safeProjects.map(p => `- ${p.id}: "${p.name}" (Status: ${p.status}, Start: ${p.startDate})`).join('\n');
+  const nutrientList = safeNutrients.map(n => `- ${sanitizeForPrompt(n.brand)} ${sanitizeForPrompt(n.name)} (${sanitizeForPrompt(n.npk)}, ${n.bottleCount} bottles)`).join('\n');
+  const strainList = safeStrains.map(s => `- ${s.id}: ${sanitizeForPrompt(s.breeder)} ${sanitizeForPrompt(s.name)} (${s.type}, ${s.floweringTimeWeeks}w, ${s.inventoryCount} seeds)`).join('\n');
+  const projectList = safeProjects.map(p => `- ${p.id}: "${sanitizeForPrompt(p.name)}" (Status: ${p.status}, Start: ${p.startDate})`).join('\n');
   
   const currentDate = new Date().toLocaleDateString();
 
@@ -364,16 +368,16 @@ export const analyzeGenetics = async (
   
   const potentialPartners = safeInventory
     .filter(s => s.id !== targetStrain.id)
-    .map(s => JSON.stringify({ id: s.id, name: s.name, type: s.type, breeder: s.breeder }))
+    .map(s => JSON.stringify({ id: s.id, name: sanitizeForPrompt(s.name), type: s.type, breeder: sanitizeForPrompt(s.breeder) }))
     .join('\n');
 
   let knownLineageContext = "";
   if (targetStrain.parents && targetStrain.parents.length > 0) {
-    const parentStr = targetStrain.parents.map(p => `${p.name} (${p.type})`).join(', ');
+    const parentStr = targetStrain.parents.map(p => `${sanitizeForPrompt(p.name)} (${p.type})`).join(', ');
     knownLineageContext += `KNOWN PARENTS: ${parentStr}.\n`;
   }
 
-  const prompt = `Analyze the cannabis strain "${targetStrain.name}" by ${targetStrain.breeder}.
+  const prompt = `Analyze the cannabis strain "${sanitizeForPrompt(targetStrain.name)}" by ${sanitizeForPrompt(targetStrain.breeder)}.
   ${knownLineageContext ? `IMPORTANT: Use this lineage:\n${knownLineageContext}` : 'TASK 1: Determine lineage.'}
   
   TASK 2: Suggest Breeding Matches from "Potential Partners".
@@ -431,7 +435,7 @@ export const analyzeGrowData = async (
 ): Promise<string> => {
   const ai = getAiClient(settings.geminiApiKey);
 
-  const logSummary = logs.slice(0, 50).map(l => `${l.date}: ${l.action} ${l.amount}${l.unit} of ${l.itemName} (${l.category})`).join('\n');
+  const logSummary = logs.slice(0, 50).map(l => `${l.date}: ${l.action} ${l.amount}${l.unit} of ${sanitizeForPrompt(l.itemName)} (${l.category})`).join('\n');
   const totalValue = nutrients.reduce((acc, n) => acc + ((n.cost || 0) * (n.bottleCount || 0)), 0) + 
                      strains.reduce((acc, s) => acc + (s.cost || 0), 0);
 
@@ -458,7 +462,7 @@ export const generateDashboardBriefing = async (
   settings: UserSettings
 ): Promise<string> => {
   const ai = getAiClient(settings.geminiApiKey);
-  const lowStockNutes = nutrients.filter(n => (n.bottleCount || 0) <= 1).map(n => n.name).join(', ');
+  const lowStockNutes = nutrients.filter(n => (n.bottleCount || 0) <= 1).map(n => sanitizeForPrompt(n.name)).join(', ');
   const totalBottles = nutrients.reduce((acc, n) => acc + (n.bottleCount || 0), 0);
 
   const prompt = `

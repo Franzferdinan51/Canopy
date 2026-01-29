@@ -1,0 +1,4 @@
+## 2024-05-23 - Prompt Injection Defense
+**Vulnerability:** User-controlled inputs (Nutrient names, Strain names, URLs) were directly injected into LLM prompts without sanitization. This could allow "Prompt Injection" attacks where a malicious user (or malicious data source) could override system instructions or exfiltrate data.
+**Learning:** In AI-integrated applications, "Input Sanitization" extends beyond XSS. We must also neutralize characters that control the LLM prompt structure (newlines, backticks) or semantic meaning.
+**Prevention:** Implemented `services/security.ts` with `sanitizeForPrompt`. This function removes newlines (replacing with spaces) and escapes backticks to ensure user data is treated as flat text, not instructions. Applied this to all prompt construction points in `geminiService.ts`.
