@@ -1,8 +1,9 @@
 
 import React, { useState, useRef } from 'react';
 import { Nutrient, NutrientType, UserSettings, UsageLog } from '../types';
-import { Plus, Trash2, Camera, Droplet, Loader2, Pencil, Package, History, DollarSign, Bot } from 'lucide-react';
+import { Plus, Trash2, Camera, Droplet, Loader2, Pencil, Package, History, DollarSign, Bot, X } from 'lucide-react';
 import { fileToGenerativePart, scanInventoryItem } from '../services/geminiService';
+import { EmptyState } from './EmptyState';
 
 interface NutrientListProps {
   nutrients: Nutrient[];
@@ -189,57 +190,67 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
-        {nutrients.map(nutrient => (
-          <div key={nutrient.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5 flex flex-col justify-between hover:shadow-md transition-all group">
-            <div>
-              <div className="flex justify-between items-start mb-2">
-                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                  nutrient.type === NutrientType.BASE ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' :
-                  nutrient.type === NutrientType.ADDITIVE ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' :
-                  'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                }`}>
-                  {nutrient.type}
-                </span>
-                <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-                   <button onClick={() => handleEdit(nutrient)} className="text-gray-400 hover:text-blue-500 transition-colors mr-2" title="Edit">
-                    <Pencil size={16} />
-                  </button>
-                  <button onClick={() => handleDelete(nutrient.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="Delete">
-                    <Trash2 size={16} />
-                  </button>
+      {nutrients.length === 0 ? (
+        <EmptyState
+          icon={Package}
+          title="No Nutrients in Inventory"
+          description="Add your nutrients to track inventory, usage, and get AI recommendations."
+          actionLabel="Add Nutrient"
+          onAction={openNewModal}
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
+          {nutrients.map(nutrient => (
+            <div key={nutrient.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5 flex flex-col justify-between hover:shadow-md transition-all group">
+              <div>
+                <div className="flex justify-between items-start mb-2">
+                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                    nutrient.type === NutrientType.BASE ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' :
+                    nutrient.type === NutrientType.ADDITIVE ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' :
+                    'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                  }`}>
+                    {nutrient.type}
+                  </span>
+                  <div className="flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                     <button onClick={() => handleEdit(nutrient)} className="text-gray-400 hover:text-blue-500 transition-colors mr-2" title="Edit" aria-label="Edit Nutrient">
+                      <Pencil size={16} />
+                    </button>
+                    <button onClick={() => handleDelete(nutrient.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="Delete" aria-label="Delete Nutrient">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 truncate">{nutrient.name}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-3">{nutrient.brand}</p>
-              
-              <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-xs font-bold text-blue-500">N</span>
-                  <span>NPK: <span className="font-mono font-medium">{nutrient.npk}</span></span>
-                </div>
-                <div className="flex items-center gap-2">
-                   <Package size={14} className="text-blue-500" />
-                   <span>{nutrient.bottleCount} bottles ({nutrient.volumeLiters}L)</span>
-                </div>
-                {nutrient.cost && (
-                   <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                     <DollarSign size={14} />
-                     <span>${nutrient.cost} / unit</span>
-                   </div>
-                )}
-              </div>
-            </div>
+                <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 truncate">{nutrient.name}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-3">{nutrient.brand}</p>
 
-            <button 
-              onClick={() => openLogModal(nutrient)}
-              className="mt-4 w-full py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-canopy-50 dark:hover:bg-canopy-900/20 hover:text-canopy-600 dark:hover:text-canopy-400 transition-colors flex items-center justify-center gap-2"
-            >
-              <History size={16} /> Log Dose / Usage
-            </button>
-          </div>
-        ))}
-      </div>
+                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-xs font-bold text-blue-500">N</span>
+                    <span>NPK: <span className="font-mono font-medium">{nutrient.npk}</span></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                     <Package size={14} className="text-blue-500" />
+                     <span>{nutrient.bottleCount} bottles ({nutrient.volumeLiters}L)</span>
+                  </div>
+                  {nutrient.cost && (
+                     <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                       <DollarSign size={14} />
+                       <span>${nutrient.cost} / unit</span>
+                     </div>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => openLogModal(nutrient)}
+                className="mt-4 w-full py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-canopy-50 dark:hover:bg-canopy-900/20 hover:text-canopy-600 dark:hover:text-canopy-400 transition-colors flex items-center justify-center gap-2"
+              >
+                <History size={16} /> Log Dose / Usage
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       {isModalOpen && (
@@ -249,7 +260,9 @@ export const NutrientList: React.FC<NutrientListProps> = ({ nutrients, setNutrie
               <h3 className="text-xl font-bold text-gray-800 dark:text-white">
                 {editingId ? 'Edit Nutrient' : 'Add New Nutrient'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">X</button>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <X size={24} />
+              </button>
             </div>
             
             <form onSubmit={handleAdd} className="p-6 space-y-4">
