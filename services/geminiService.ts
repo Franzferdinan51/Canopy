@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Nutrient, Strain, NutrientType, StrainType, UserSettings, NewsArticle, GeneticAnalysis, UsageLog, LineageNode, ProductAlternative, Attachment, AiModelId, BreedingProject } from '../types';
+import { sanitizeForPrompt } from './security';
 
 // --- Gemini Client ---
 const getAiClient = (apiKey: string) => {
@@ -96,7 +97,7 @@ export const fetchStrainDataFromUrl = async (
 ): Promise<Partial<Strain>> => {
   const ai = getAiClient(settings.geminiApiKey);
   
-  const prompt = `TARGET URL: "${url}"
+  const prompt = `TARGET URL: "${sanitizeForPrompt(url)}"
 
   ROLE: You are a research assistant.
   OBJECTIVE: Find definitive growing information for the cannabis strain at the provided URL.
@@ -173,7 +174,7 @@ export const findProductAlternatives = async (
 ): Promise<ProductAlternative[]> => {
   const ai = getAiClient(settings.geminiApiKey);
 
-  const prompt = `Find 3 excellent alternative products for: "${brand} ${itemName}" (${category}).
+  const prompt = `Find 3 excellent alternative products for: "${sanitizeForPrompt(brand)} ${sanitizeForPrompt(itemName)}" (${sanitizeForPrompt(category)}).
   
   Criteria:
   1. Similar or better quality.
@@ -229,7 +230,7 @@ export const askGrowAssistant = async (
   const isThinkingModel = modelId.includes('pro');
 
   const systemInstruction = `You are Canopy, a fully Context-Aware, Agentic Master Grower AI.
-  Managed by: ${settings.userName} (${settings.experienceLevel} grower).
+  Managed by: ${sanitizeForPrompt(settings.userName)} (${sanitizeForPrompt(String(settings.experienceLevel))} grower).
   Date: ${currentDate}.
   Current View: ${inventoryContext.currentView}.
 
@@ -373,7 +374,7 @@ export const analyzeGenetics = async (
     knownLineageContext += `KNOWN PARENTS: ${parentStr}.\n`;
   }
 
-  const prompt = `Analyze the cannabis strain "${targetStrain.name}" by ${targetStrain.breeder}.
+  const prompt = `Analyze the cannabis strain "${sanitizeForPrompt(targetStrain.name)}" by ${sanitizeForPrompt(targetStrain.breeder)}.
   ${knownLineageContext ? `IMPORTANT: Use this lineage:\n${knownLineageContext}` : 'TASK 1: Determine lineage.'}
   
   TASK 2: Suggest Breeding Matches from "Potential Partners".
@@ -431,7 +432,7 @@ export const analyzeGrowData = async (
 ): Promise<string> => {
   const ai = getAiClient(settings.geminiApiKey);
 
-  const logSummary = logs.slice(0, 50).map(l => `${l.date}: ${l.action} ${l.amount}${l.unit} of ${l.itemName} (${l.category})`).join('\n');
+  const logSummary = logs.slice(0, 50).map(l => `${l.date}: ${l.action} ${l.amount}${l.unit} of ${sanitizeForPrompt(l.itemName)} (${sanitizeForPrompt(l.category)})`).join('\n');
   const totalValue = nutrients.reduce((acc, n) => acc + ((n.cost || 0) * (n.bottleCount || 0)), 0) + 
                      strains.reduce((acc, s) => acc + (s.cost || 0), 0);
 
@@ -463,7 +464,7 @@ export const generateDashboardBriefing = async (
 
   const prompt = `
   You are 'Canopy', a Master Grower AI.
-  Grower Name: ${settings.userName}
+  Grower Name: ${sanitizeForPrompt(settings.userName)}
   Context:
   - Total Strains: ${strains.length}
   - Nutrient Bottles: ${totalBottles}
