@@ -96,7 +96,7 @@ const App: React.FC = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed.map((n: any) => ({ 
             ...n, 
             bottleCount: Number(n.bottleCount ?? 1),
@@ -116,7 +116,7 @@ const App: React.FC = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed.map((s: any) => ({ 
             ...s, 
             inventoryCount: Number(s.inventoryCount),
